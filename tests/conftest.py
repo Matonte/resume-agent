@@ -21,3 +21,14 @@ def _disable_llm(monkeypatch):
     monkeypatch.setattr(llm, "is_available", lambda: False)
     monkeypatch.setattr(llm_rewrite, "is_available", lambda: False)
     yield
+
+
+@pytest.fixture
+def isolated_outputs(tmp_path, monkeypatch):
+    """Point `settings.outputs_dir` at a tmp folder for the duration of a
+    test. Any code that reads `outputs/jobs.sqlite` or writes under
+    `outputs/<date>/` will land inside the fixture's tmp_path."""
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "outputs_dir", str(tmp_path))
+    yield tmp_path

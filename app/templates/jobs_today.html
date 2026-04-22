@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Resume Agent — Today's Jobs</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/jobs_today.css" />
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <h1>Today's Jobs</h1>
+        <p class="subtitle">
+          Tailored packages from this morning's run. Approve to unlock semi-auto apply,
+          or skip to clear the queue.
+        </p>
+      </div>
+      <div class="links">
+        <a href="/">Single-job review</a>
+        <a href="/docs" target="_blank">/docs</a>
+      </div>
+    </header>
+
+    <section id="summary" class="panel summary-panel">
+      <div class="summary-cell">
+        <div class="summary-label">Run</div>
+        <div class="summary-value" id="summary-run">-</div>
+      </div>
+      <div class="summary-cell">
+        <div class="summary-label">Surfaced</div>
+        <div class="summary-value" id="summary-count">0</div>
+      </div>
+      <div class="summary-cell">
+        <div class="summary-label">Approved</div>
+        <div class="summary-value" id="summary-approved">0</div>
+      </div>
+      <div class="summary-cell">
+        <div class="summary-label">Submitted</div>
+        <div class="summary-value" id="summary-submitted">0</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div id="jobs-list" class="jobs-list">
+        <div class="empty-state">Loading today's jobs…</div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/jobs_today.js"></script>
+</body>
+</html>

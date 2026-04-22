@@ -40,4 +40,11 @@ outputs/
 /MM_Resume_tailored*.docx
 # Scratch / scripted probes we create and delete during agent sessions
 .tmp_*
+# Persistent Playwright profiles (login cookies for job sites)
+.playwright/
+# SQLite dbs + logs + daily artifact folders
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+logs/
 

@@ -1,0 +1,72 @@
+# Daily job-agent preferences. This file tells the agent what to search for,
+# where it is willing to work, what to exclude, and how many jobs to keep.
+#
+# The agent reads it at the start of every morning run and uses it to:
+#   1. Generate per-source search queries.
+#   2. Filter raw scraped jobs (location, excluded companies, excluded keywords).
+#   3. Cap the output list at `daily_cap` after fit-score ranking.
+
+candidate:
+  # Used as defaults in cover letters when the truth model doesn't already carry them.
+  name: "Michael Matonte"
+  email: ""
+  phone: ""
+  linkedin_url: ""
+  github_url: ""
+
+targets:
+  titles:
+    - "Senior Backend Engineer"
+    - "Senior Software Engineer"
+    - "Staff Backend Engineer"
+    - "Backend Engineer"
+    - "Distributed Systems Engineer"
+  seniority: senior
+  locations:
+    - "New York, NY"
+    - "Jersey City, NJ"
+    - "Remote (US)"
+  remote_ok: true
+  min_base_salary_usd: 180000
+
+exclude:
+  companies: []
+  keywords:
+    - "unpaid"
+    - "intern"
+    - "internship"
+    - "junior"
+
+sources:
+  linkedin:
+    enabled: true
+    queries:
+      - "Senior Backend Engineer fintech"
+      - "Senior Backend Engineer distributed systems"
+  wttj:   # Welcome to the Jungle
+    # Disabled: WTTJ's bot detection blocks Playwright logins, and modern
+    # Chrome refuses (exit code 21) when Playwright points at the real
+    # user-data dir. Flip to true + re-run `login_once.py wttj` if you
+    # find a workaround (e.g. a residential-IP proxy, or a WTTJ mobile
+    # API path).
+    enabled: false
+    queries:
+      - "senior backend engineer"
+      - "backend distributed systems"
+  jobright:
+    enabled: true
+    queries:
+      - "senior backend engineer"
+
+# Total tailored packages written to disk and surfaced in the 9:05 AM digest.
+daily_cap: 10
+
+# Per-source soft cap before global ranking. Each scraper will try to return
+# roughly this many candidates; the runner then ranks all candidates across
+# sources by fit_score and cuts to `daily_cap`.
+per_source_cap: 15
+
+# Human-pace throttling for scrapers (seconds).
+scraper:
+  min_delay_ms: 1800
+  max_delay_ms: 3800
