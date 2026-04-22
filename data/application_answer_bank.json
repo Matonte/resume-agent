@@ -1,0 +1,38 @@
+{
+  "why_this_role": [
+    {
+      "label": "backend_distributed",
+      "template": "This role lines up with the work I do best: building backend systems that have to stay reliable under load. A lot of my recent work has been event-driven and latency-sensitive, so I\u2019m especially interested in roles where backend design, service boundaries, and operational resilience matter."
+    },
+    {
+      "label": "data_streaming",
+      "template": "I\u2019m interested in roles where data movement and system reliability are core to the product. I\u2019ve built ingestion services, streaming workflows, and the monitoring needed to keep them healthy in production, so the fit here feels direct."
+    },
+    {
+      "label": "fintech",
+      "template": "I\u2019ve spent much of my career in financial and data-sensitive environments, where correctness, auditability, and reliability matter as much as raw throughput. That makes this role a natural fit for my background."
+    }
+  ],
+  "why_this_company": [
+    {
+      "label": "product_company",
+      "template": "I\u2019m drawn to companies where engineering work has a clear product impact. I like environments where backend systems are close to customer value, and where reliability and iteration speed both matter."
+    },
+    {
+      "label": "infrastructure_company",
+      "template": "I\u2019m especially interested in companies that treat infrastructure and backend systems as strategic advantages. That kind of environment tends to reward the kind of work I\u2019ve focused on: scalability, fault tolerance, and performance under production load."
+    }
+  ],
+  "ambiguity_example": [
+    {
+      "story_id": "citihawks_access_control",
+      "template": "One example was an access-control platform I worked on at Citi. The requirements evolved as we worked through how approval workflows, entitlements, and service interactions needed to behave in production. I handled that by tightening service contracts, breaking the workflow into clear backend responsibilities, and using observability to validate how the system behaved as the design matured."
+    }
+  ],
+  "ownership_example": [
+    {
+      "story_id": "citihawks_access_control",
+      "template": "A strong ownership example was the access-control platform I built at Citi. I owned core backend design choices, API contracts, and the operational behavior of the system. That included making tradeoffs around event handling, reliability patterns, and production diagnostics rather than just implementing a narrow piece of the stack."
+    }
+  ]
+}

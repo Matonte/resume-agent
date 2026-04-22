@@ -1,0 +1,123 @@
+{
+  "A_general_ai_platform": {
+    "id": "A_general_ai_platform",
+    "name": "AI / Platform / General Systems",
+    "best_for": [
+      "platform backend",
+      "AI-adjacent engineering",
+      "general senior backend"
+    ],
+    "headline_title": "Senior Backend Engineer",
+    "scale_phrase": "high-throughput distributed systems",
+    "domain_phrase": "financial and enterprise environments",
+    "specializations": [
+      "backend architecture",
+      "event-driven systems",
+      "cloud-native infrastructure"
+    ],
+    "focus_traits": [
+      "reliability",
+      "scalability",
+      "production performance"
+    ],
+    "summary_focus": [
+      "distributed systems",
+      "customer-facing platforms",
+      "AI-assisted development",
+      "business impact"
+    ],
+    "source_resume": "MM_Resume_4_9_26_A (3).docx"
+  },
+  "B_fintech_transaction_systems": {
+    "id": "B_fintech_transaction_systems",
+    "name": "Fintech / Transaction Systems",
+    "best_for": [
+      "fintech",
+      "payments",
+      "risk",
+      "compliance",
+      "entitlements",
+      "financial backend"
+    ],
+    "headline_title": "Senior Backend Engineer",
+    "scale_phrase": "high-throughput distributed transaction systems",
+    "domain_phrase": "financial and regulated environments",
+    "specializations": [
+      "event-driven backend architecture",
+      "financial transaction workflows",
+      "auditability and entitlements"
+    ],
+    "focus_traits": [
+      "reliability",
+      "scalability",
+      "production performance"
+    ],
+    "summary_focus": [
+      "data integrity",
+      "auditability",
+      "transaction reliability",
+      "operational resilience"
+    ],
+    "source_resume": "MM_Resume_4_9_26_B (1).docx"
+  },
+  "C_data_streaming_systems": {
+    "id": "C_data_streaming_systems",
+    "name": "Data / Streaming Systems",
+    "best_for": [
+      "data infrastructure",
+      "streaming",
+      "ingestion",
+      "analytics platform"
+    ],
+    "headline_title": "Senior Backend Engineer",
+    "scale_phrase": "high-volume real-time data platforms",
+    "domain_phrase": "financial and industrial environments",
+    "specializations": [
+      "streaming ingestion pipelines",
+      "real-time backend processing",
+      "observability and latency tuning"
+    ],
+    "focus_traits": [
+      "throughput",
+      "reliability",
+      "production visibility"
+    ],
+    "summary_focus": [
+      "pipelines",
+      "real-time processing",
+      "latency optimization",
+      "observability"
+    ],
+    "source_resume": "MM_Resume_4_9_26_C(2).docx"
+  },
+  "D_distributed_systems": {
+    "id": "D_distributed_systems",
+    "name": "Distributed Systems",
+    "best_for": [
+      "backend infrastructure",
+      "low-latency systems",
+      "distributed services",
+      "reliability-heavy roles"
+    ],
+    "headline_title": "Senior Backend / Distributed Systems Engineer",
+    "scale_phrase": "low-latency distributed backend systems",
+    "domain_phrase": "financial and enterprise production environments",
+    "specializations": [
+      "distributed backend architecture",
+      "event-driven and concurrent systems",
+      "fault tolerance and resilience engineering"
+    ],
+    "focus_traits": [
+      "reliability",
+      "scalability",
+      "performance under production load"
+    ],
+    "summary_focus": [
+      "concurrency",
+      "fault tolerance",
+      "performance",
+      "resilience under load"
+    ],
+    "source_resume": "MM_Resume_4_9_26_D (1) (1).docx"
+  }
+}

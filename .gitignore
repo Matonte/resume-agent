@@ -1,0 +1,43 @@
+# --- Secrets & env ---
+.env
+.env.*
+!.env.example
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# --- Node / Next.js (for when the frontend is added) ---
+node_modules/
+.next/
+dist/
+build/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# --- Editors / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Project-specific ---
+# Generated resumes / outputs that shouldn't be checked in
+outputs/
+*.pdf
+*.docx.bak
+# Generated tailored resumes at repo root (source templates live in data/source_resumes/)
+/MM_Resume_tailored*.docx
+# Scratch / scripted probes we create and delete during agent sessions
+.tmp_*
+

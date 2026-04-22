@@ -1,0 +1,317 @@
+{
+  "candidate": {
+    "preferred_name": "Bill Matonte",
+    "location": "Jersey City, NJ",
+    "phone": "307.920.0581",
+    "email": "matonte3@gmail.com",
+    "linkedin": "linkedin.com/in/billmatonte",
+    "github": "github.com/Matonte",
+    "wellfound": "angel.co/michael-bill-matonte",
+    "headline": "Senior Backend Engineer / Distributed Systems Engineer",
+    "years_experience": 11,
+    "education": [
+      {
+        "degree": "M.S.A.I.",
+        "field": "Artificial Intelligence",
+        "school": "University of Texas at Austin",
+        "start": "2024-08",
+        "end": null,
+        "status": "Present"
+      },
+      {
+        "degree": "M.Eng.",
+        "field": "Computer Science",
+        "school": "University of Colorado Boulder"
+      },
+      {
+        "degree": "B.S.",
+        "field": "Computer Science",
+        "school": "University of Wyoming"
+      }
+    ],
+    "skills": {
+      "languages": [
+        "Java",
+        "Python",
+        "JavaScript",
+        "C#"
+      ],
+      "backend_frameworks": [
+        "Spring Boot",
+        "Hibernate",
+        "J2EE",
+        "Node.js"
+      ],
+      "distributed_systems": [
+        "Microservices",
+        "Event-Driven Architecture",
+        "Concurrency",
+        "Asynchronous Processing",
+        "Fault Tolerance"
+      ],
+      "cloud_infra": [
+        "AWS Lambda",
+        "AWS Step Functions",
+        "AWS ECS/Fargate",
+        "Terraform",
+        "OpenShift"
+      ],
+      "data_messaging": [
+        "Kafka",
+        "Solace",
+        "GemFire",
+        "SQL",
+        "DynamoDB",
+        "MongoDB",
+        "HBase"
+      ],
+      "observability": [
+        "Logging",
+        "Metrics",
+        "Monitoring"
+      ],
+      "tooling": [
+        "Jenkins",
+        "Maven",
+        "Gradle",
+        "Git",
+        "Spark",
+        "Hadoop"
+      ],
+      "ai_emerging": [
+        "LLM prompting",
+        "AI-assisted development",
+        "workflow automation",
+        "evaluation of AI outputs"
+      ]
+    }
+  },
+  "roles": [
+    {
+      "company": "Citibank",
+      "title": "Senior Backend Engineer",
+      "location": "Jersey City, NJ",
+      "start": "2025-03",
+      "end": null,
+      "is_current": true,
+      "signature_project": "Citihawks",
+      "core_facts": [
+        "Architected and delivered Citihawks, an event-driven access-control platform for entitlements workflows, reducing manual provisioning by approximately 70 percent and improving auditability across financial systems.",
+        "Designed and maintained event-driven backend services supporting entitlements workflows on Solace and GemFire, improving system scalability and reducing operational friction across distributed financial systems.",
+        "Built and deployed production APIs on OpenShift and owned backend service contracts across microservices supporting critical financial workflows.",
+        "Implemented retry, backoff, and idempotent handling patterns to keep entitlement processing reliable under failure and replay scenarios.",
+        "Tuned hot paths in production entitlement workflows, increasing throughput and cutting request latency for downstream financial services.",
+        "Introduced AI-assisted development workflows that shortened iteration cycles and lifted engineering productivity across the backend team.",
+        "Instrumented distributed backend services with metrics, logs, and tracing, reducing incident detection time and sharpening architecture clarity across the platform."
+      ],
+      "tech": [
+        "Java",
+        "Solace",
+        "GemFire",
+        "OpenShift",
+        "APIs",
+        "microservices",
+        "LLM tooling"
+      ],
+      "themes": [
+        "distributed systems",
+        "event-driven",
+        "entitlements",
+        "financial workflows",
+        "low latency",
+        "high throughput",
+        "production systems",
+        "observability",
+        "reliability"
+      ],
+      "story_id": "citihawks_access_control"
+    },
+    {
+      "company": "SK Battery America",
+      "title": "Manufacturing Software Engineer",
+      "location": "Memphis, TN",
+      "start": "2024-04",
+      "end": "2025-03",
+      "core_facts": [
+        "Built real-time ingestion services processing high-volume event streams from production-line equipment at a multi-billion-dollar EV manufacturing facility.",
+        "Designed monitoring and alerting for latency, throughput, and failures, reducing blind spots in production pipeline health.",
+        "Implemented backend services supporting analytics and operational decision-making on near-real-time manufacturing data.",
+        "Improved event-processing reliability and operational visibility, increasing responsiveness across production systems."
+      ],
+      "tech": [
+        "Python",
+        "Java",
+        "event streams",
+        "monitoring",
+        "alerting"
+      ],
+      "themes": [
+        "data pipelines",
+        "observability",
+        "real-time systems",
+        "manufacturing analytics"
+      ],
+      "story_id": "sk_battery_ingestion"
+    },
+    {
+      "company": "JP Morgan Chase",
+      "title": "Senior Backend Engineer",
+      "location": "Wilmington, DE",
+      "start": "2023-07",
+      "end": "2024-04",
+      "core_facts": [
+        "Led migration of a legacy mortgage platform to a serverless AWS architecture on Lambda, Step Functions, and Fargate, cutting infrastructure costs by approximately 90 percent and improving scalability and deployment velocity.",
+        "Scaled backend workflows to handle thousands of concurrent users on a production financial platform.",
+        "Built Terraform infrastructure for reproducible environments, improving deployment reliability across services.",
+        "Owned backend service decomposition and cloud-native design decisions for the migrated platform."
+      ],
+      "tech": [
+        "AWS Lambda",
+        "AWS Step Functions",
+        "AWS Fargate",
+        "Terraform"
+      ],
+      "themes": [
+        "serverless",
+        "migration",
+        "scalability",
+        "cost optimization",
+        "cloud architecture"
+      ],
+      "story_id": "jpm_serverless_migration"
+    },
+    {
+      "company": "Wells Fargo",
+      "title": "Senior Backend Engineer",
+      "location": "Richmond, VA",
+      "start": "2021-10",
+      "end": "2023-07",
+      "core_facts": [
+        "Architected and launched a SaaS pricing API supporting high-value financial clients and multi-million-dollar revenue streams.",
+        "Decomposed monolithic systems into Spring Boot microservices, increasing deployment frequency and improving reliability of distributed backend services.",
+        "Improved observability through logging, metrics, and automated testing, reducing production incident detection time across financial workflows.",
+        "Owned API contracts and backend service boundaries across the pricing platform."
+      ],
+      "tech": [
+        "Java",
+        "Spring Boot",
+        "microservices",
+        "logging",
+        "metrics",
+        "testing"
+      ],
+      "themes": [
+        "SaaS platform",
+        "financial systems",
+        "microservices",
+        "observability",
+        "reliability"
+      ],
+      "story_id": "wf_pricing_api"
+    },
+    {
+      "company": "Wells Fargo",
+      "title": "Contractor Software Engineer",
+      "location": "Charlotte, NC",
+      "start": "2020-01",
+      "end": "2021-10",
+      "core_facts": [
+        "Maintained compliance APIs supporting hundreds of enterprise applications across the bank's distributed backend estate.",
+        "Built services in C# and Java and integrated Kafka messaging and REST APIs for event-driven backend workflows.",
+        "Supported CI/CD pipelines using Jenkins and deployed services on RHEL infrastructure in production.",
+        "Diagnosed and resolved cross-application integration failures across compliance and messaging systems."
+      ],
+      "tech": [
+        "C#",
+        "Java",
+        "Kafka",
+        "REST",
+        "Jenkins",
+        "RHEL"
+      ],
+      "themes": [
+        "enterprise APIs",
+        "messaging",
+        "compliance",
+        "CI/CD",
+        "distributed integration"
+      ],
+      "story_id": "wf_compliance_apis"
+    },
+    {
+      "company": "CapGemini (client: Synchrony Bank)",
+      "title": "Software Engineer",
+      "location": "Stamford, CT",
+      "start": "2019-01",
+      "end": "2020-01",
+      "core_facts": [
+        "Resolved authentication and authorization issues in backend systems supporting millions of financial accounts, strengthening entitlements and reliability.",
+        "Built analytics tracking and dashboards to capture user behavior across web platforms, improving operational visibility across the product."
+      ],
+      "tech": [
+        "authentication",
+        "authorization",
+        "analytics",
+        "dashboards"
+      ],
+      "themes": [
+        "security",
+        "user analytics",
+        "backend reliability"
+      ],
+      "story_id": "synchrony_auth_analytics"
+    },
+    {
+      "company": "TCS (client: Citibank)",
+      "title": "Software Engineer",
+      "location": "Jacksonville, FL",
+      "start": "2018-04",
+      "end": "2019-01",
+      "core_facts": [
+        "Developed a Java Spring project supporting planning and development of an AI fraud detection system processing over 5 million transactions daily from over 1 million accounts.",
+        "Handled ingestion of gigabytes of transaction data daily into the fraud detection pipeline.",
+        "Built UI and Java business logic to support client planning workflows across the fraud detection product.",
+        "Integrated a Java 6 stack with JSF/JSP front end and HBase backend for high-volume financial data."
+      ],
+      "tech": [
+        "Java",
+        "Spring",
+        "JSF",
+        "JSP",
+        "HBase",
+        "JAXB XML"
+      ],
+      "themes": [
+        "fraud detection",
+        "high-volume data",
+        "legacy integration",
+        "financial analytics"
+      ],
+      "story_id": "tcs_fraud_detection"
+    }
+  ],
+  "guardrails": {
+    "must_not_invent": [
+      "metrics",
+      "titles",
+      "tools",
+      "dates",
+      "scope",
+      "team size",
+      "domain claims"
+    ],
+    "allowed_transformations": [
+      "reorder bullets",
+      "rephrase bullets",
+      "emphasize relevant themes",
+      "compress wording",
+      "adapt summary language"
+    ],
+    "style_rules": [
+      "Use concrete, senior-level language.",
+      "Prefer action + system + impact phrasing.",
+      "Do not use generic AI fluff.",
+      "Keep all claims defensible in an interview."
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+[
+  {
+    "archetype": "D_distributed_systems",
+    "job_context": "Backend role focused on low-latency services and fault tolerance",
+    "source_bullet": "Built backend services supporting concurrent access across microservices, ensuring stable behavior under varying workloads.",
+    "rewritten_bullet": "Built concurrent backend services across microservice boundaries, improving stability and predictable behavior under varying production workloads."
+  },
+  {
+    "archetype": "C_data_streaming_systems",
+    "job_context": "Data platform role focused on ingestion and monitoring",
+    "source_bullet": "Built real-time data ingestion services for manufacturing systems, processing high-volume event streams from production-line equipment.",
+    "rewritten_bullet": "Built high-throughput ingestion services that processed real-time production event streams and improved operational visibility for downstream analytics."
+  },
+  {
+    "archetype": "B_fintech_transaction_systems",
+    "job_context": "Fintech platform role focused on correctness and secure workflows",
+    "source_bullet": "Built secure APIs supporting entitlement workflows and financial data access, ensuring reliability under production load.",
+    "rewritten_bullet": "Built secure backend APIs for entitlement workflows and financial data access, emphasizing reliability, data integrity, and predictable behavior under production load."
+  }
+]

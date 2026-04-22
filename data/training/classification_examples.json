@@ -1,0 +1,49 @@
+[
+  {
+    "job_title": "Senior Backend Engineer, Payments Platform",
+    "keywords": [
+      "financial transactions",
+      "reliability",
+      "auditability",
+      "ledger",
+      "compliance"
+    ],
+    "chosen_archetype": "B_fintech_transaction_systems",
+    "reason": "Financial workflows, correctness, and transaction integrity are central."
+  },
+  {
+    "job_title": "Senior Software Engineer, Event Streaming",
+    "keywords": [
+      "Kafka",
+      "streaming",
+      "pipelines",
+      "real-time ingestion",
+      "latency"
+    ],
+    "chosen_archetype": "C_data_streaming_systems",
+    "reason": "Streaming, ingestion, and observability dominate the job language."
+  },
+  {
+    "job_title": "Senior Backend Engineer, Infrastructure",
+    "keywords": [
+      "low latency",
+      "distributed systems",
+      "concurrency",
+      "fault tolerance"
+    ],
+    "chosen_archetype": "D_distributed_systems",
+    "reason": "Performance and distributed systems behavior are the core signal."
+  },
+  {
+    "job_title": "Senior Platform Engineer, AI Developer Tools",
+    "keywords": [
+      "platform",
+      "developer productivity",
+      "LLM",
+      "automation",
+      "backend systems"
+    ],
+    "chosen_archetype": "A_general_ai_platform",
+    "reason": "Platform focus with AI-adjacent tooling makes the general AI/platform resume the best base."
+  }
+]

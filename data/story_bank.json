@@ -1,0 +1,124 @@
+[
+  {
+    "id": "citihawks_access_control",
+    "title": "Citibank event-driven access control platform",
+    "summary": "Built an event-driven access-control platform that reduced manual provisioning by ~70 percent and improved auditability across financial systems.",
+    "situation": "Manual entitlement workflows were slow and error-prone.",
+    "task": "Design backend services that could translate access requests, route approval workflows, and maintain reliable processing under load.",
+    "actions": [
+      "Designed event-driven services using Solace and GemFire.",
+      "Built APIs on OpenShift and owned service contracts.",
+      "Implemented retry, backoff, and idempotent handling patterns.",
+      "Improved observability and diagnosed production bottlenecks.",
+      "Introduced AI-assisted developer workflows to shorten iteration cycles."
+    ],
+    "results": [
+      "Reduced manual provisioning by ~70 percent.",
+      "Improved throughput and reduced latency across critical workflows.",
+      "Increased auditability and backend reliability."
+    ],
+    "tags": [
+      "distributed",
+      "backend",
+      "fintech",
+      "access control",
+      "event-driven",
+      "low latency"
+    ],
+    "best_for": [
+      "project deep dive",
+      "why this role",
+      "system design",
+      "ownership",
+      "ambiguity"
+    ]
+  },
+  {
+    "id": "sk_battery_ingestion",
+    "title": "SK Battery real-time ingestion and observability",
+    "summary": "Built ingestion pipelines and monitoring systems for a multi-billion-dollar EV manufacturing facility.",
+    "situation": "Production-line systems produced high-volume event streams requiring near-real-time visibility.",
+    "task": "Create reliable ingestion services and operational monitoring.",
+    "actions": [
+      "Built real-time ingestion services for high-volume event streams.",
+      "Designed monitoring and alerting for throughput, latency, and failures.",
+      "Improved event processing reliability and operational analytics."
+    ],
+    "results": [
+      "Improved operational visibility and responsiveness.",
+      "Reduced blind spots in production pipeline health."
+    ],
+    "tags": [
+      "data",
+      "streaming",
+      "observability",
+      "manufacturing",
+      "real-time"
+    ],
+    "best_for": [
+      "data roles",
+      "observability questions",
+      "real-time systems"
+    ]
+  },
+  {
+    "id": "jpm_serverless_migration",
+    "title": "JPMC serverless migration",
+    "summary": "Led migration of a legacy mortgage platform to AWS serverless architecture.",
+    "situation": "A legacy mortgage system needed better scalability and lower cost.",
+    "task": "Migrate core workflows to serverless infrastructure with reproducible environments.",
+    "actions": [
+      "Led design using Lambda, Step Functions, and Fargate.",
+      "Built Terraform infrastructure for reproducible environments."
+    ],
+    "results": [
+      "Reduced infrastructure costs by ~90 percent.",
+      "Scaled to thousands of concurrent users."
+    ],
+    "tags": [
+      "aws",
+      "serverless",
+      "migration",
+      "scalability",
+      "cost"
+    ],
+    "best_for": [
+      "cloud roles",
+      "migration questions",
+      "cost/performance tradeoffs"
+    ]
+  },
+  {
+    "id": "wf_pricing_api",
+    "title": "Wells Fargo SaaS pricing API",
+    "summary": "Architected a SaaS pricing API for high-value financial clients and decomposed monoliths into Spring Boot services.",
+    "tags": [
+      "api",
+      "saas",
+      "finance",
+      "microservices",
+      "revenue"
+    ],
+    "best_for": [
+      "product/platform roles",
+      "api design",
+      "business impact"
+    ]
+  },
+  {
+    "id": "tcs_fraud_detection",
+    "title": "Citi fraud detection support system",
+    "summary": "Built Java backend systems and integration layers for planning AI-driven fraud detection workflows across 5M+ daily transactions.",
+    "tags": [
+      "fraud",
+      "high volume",
+      "legacy integration",
+      "financial data"
+    ],
+    "best_for": [
+      "fintech",
+      "data pipeline",
+      "scale stories"
+    ]
+  }
+]

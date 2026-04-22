@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Resume Agent — Review</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <h1>Resume Agent</h1>
+        <p class="subtitle">Paste a job description, classify it, and draft a tailored resume + answer locally.</p>
+      </div>
+      <div class="links">
+        <a href="/api/health" target="_blank">/api/health</a>
+        <a href="/docs" target="_blank">/docs</a>
+      </div>
+    </header>
+
+    <section class="panel">
+      <form id="draft-form" class="form-grid">
+        <div class="row two">
+          <label>
+            <span>Target title (optional)</span>
+            <input name="title" type="text" placeholder="Senior Backend Engineer" />
+          </label>
+          <label>
+            <span>Target company (optional)</span>
+            <input name="company" type="text" placeholder="Acme" />
+          </label>
+        </div>
+
+        <label>
+          <span>Job description</span>
+          <textarea name="description" rows="10" required placeholder="Paste the JD here..."></textarea>
+        </label>
+
+        <div class="row two">
+          <label>
+            <span>Archetype override (optional)</span>
+            <select name="archetype_override" id="archetype-select">
+              <option value="">Auto (from classifier)</option>
+            </select>
+          </label>
+          <label>
+            <span>One application question (optional)</span>
+            <input name="question" type="text" placeholder='e.g. "Why this role?" / "Tell me about ambiguity"' />
+          </label>
+        </div>
+
+        <label class="checkbox-row" id="llm-row">
+          <input type="checkbox" name="use_llm" id="use-llm" />
+          <span>
+            <strong>Polish with LLM</strong>
+            <span class="muted" id="llm-status"> — checking model availability…</span>
+          </span>
+        </label>
+
+        <div class="actions">
+          <button type="submit" id="go">Generate draft</button>
+          <button type="button" id="download-btn" disabled>Download tailored .docx</button>
+          <span id="status" class="status"></span>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel results hidden" id="results">
+      <article class="fit-card">
+        <h2>Fit score</h2>
+        <div class="fit-row">
+          <div class="fit-number" id="fit-score">--</div>
+          <div class="fit-band" id="fit-band"></div>
+          <div class="fit-bar"><div class="fit-fill" id="fit-fill"></div></div>
+        </div>
+        <ul class="muted" id="fit-reasons"></ul>
+      </article>
+
+      <div class="grid">
+        <article>
+          <h2>Classification</h2>
+          <div class="pill" id="archetype-pill"></div>
+          <div class="meter"><div class="meter-fill" id="score-fill"></div></div>
+          <p class="muted" id="score-text"></p>
+          <h3>Signals matched</h3>
+          <ul id="reasons"></ul>
+        </article>
+
+        <article>
+          <h2>Resume draft</h2>
+          <h3>Summary</h3>
+          <p id="summary"></p>
+          <h3>Selected bullets</h3>
+          <ul id="bullets"></ul>
+          <h3>Notes</h3>
+          <ul id="notes" class="muted"></ul>
+        </article>
+
+        <article id="answer-card">
+          <h2>Application answer</h2>
+          <p id="answer"></p>
+          <p class="muted"><span id="stories-label"></span></p>
+        </article>
+      </div>
+    </section>
+
+    <footer class="footer muted">
+      Guardrails: never invents metrics, titles, tools, dates, or scope. Every claim must trace back to
+      <code>data/master_truth_model.json</code>.
+    </footer>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
