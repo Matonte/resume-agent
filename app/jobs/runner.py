@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import List, Optional, Sequence
 
 from app.config import settings
@@ -273,6 +273,8 @@ def _preflight_auth(scraper_list: List[Scraper], errors: List[str]) -> List[Scra
 def _filter_raw(raw: List[RawJob], prefs: Preferences) -> List[RawJob]:
     out: List[RawJob] = []
     seen: set[str] = set()
+    max_age = prefs.targets.max_posting_age_days
+    now = datetime.utcnow()
     for r in raw:
         if not r.url or not r.title or not r.jd_full:
             continue
@@ -286,6 +288,9 @@ def _filter_raw(raw: List[RawJob], prefs: Preferences) -> List[RawJob]:
             continue
         if not prefs.location_is_acceptable(r.location):
             continue
+        if max_age > 0 and r.posted_at is not None:
+            if now - r.posted_at > timedelta(days=max_age):
+                continue
         out.append(r)
     return out
 
@@ -329,6 +334,7 @@ def _failed_stub(raw: RawJob, run_id: str, *, user_id: int) -> _ScoredTailoredJo
             company=raw.company or "(unknown)",
             location=raw.location,
             salary_raw=raw.salary_raw,
+            apply_url=raw.apply_url or raw.url,
             jd_full=raw.jd_full,
             status=STATUS_FAILED,
             daily_run_id=run_id,

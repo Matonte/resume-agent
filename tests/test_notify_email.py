@@ -52,6 +52,24 @@ def test_render_html_contains_links_and_rows() -> None:
     assert "jobs/today" in html
 
 
+def test_render_prefers_apply_url_in_post_link() -> None:
+    jobs = _sample_jobs()
+    jobs[0] = JobRecord(
+        id="abcd1234",
+        source="jobright",
+        url="https://jobright.ai/jobs/1",
+        apply_url="https://boards.greenhouse.io/helix/123",
+        title="Senior Backend Engineer",
+        company="Helix Fintech",
+        location="Remote (US)",
+        jd_full="JD body",
+        fit_score=8.7,
+        daily_run_id="2026-04-22",
+    )
+    html = render_digest_html(jobs, date(2026, 4, 22))
+    assert "boards.greenhouse.io" in html
+
+
 def test_render_text_lists_each_job() -> None:
     txt = render_digest_text(_sample_jobs(), date(2026, 4, 22))
     assert "Helix Fintech" in txt

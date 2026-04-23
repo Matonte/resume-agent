@@ -39,6 +39,7 @@ def _job_to_dict(j: JobRecord) -> Dict[str, Any]:
         "id": j.id,
         "source": j.source,
         "url": j.url,
+        "apply_url": j.apply_url,
         "external_id": j.external_id,
         "title": j.title,
         "company": j.company,

@@ -96,7 +96,7 @@ def _paste_first_answer(page, answer: str) -> bool:
 
 
 def _run_apply_window(job: JobRecord) -> None:
-    apply_url = job.url
+    apply_url = (job.apply_url or job.url or "").strip()
     artifact_dir = Path(job.artifact_dir or "")
     resume = artifact_dir / "resume.docx"
     cover = artifact_dir / "cover_letter.docx"

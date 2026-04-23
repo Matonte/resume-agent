@@ -20,6 +20,22 @@ It includes:
 
 ## Quick start
 
+**You do not need AWS or billing to develop.** Data lives in `outputs/` and `.playwright/` (gitignored). When you add a payment method on AWS, use [docs/CUTOVER_CHECKLIST.md](docs/CUTOVER_CHECKLIST.md) to deploy in one pass.
+
+### Windows (PowerShell)
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\pip install -r requirements.txt
+Copy-Item .env.example .env
+# Install Playwright browser once: .\.venv\Scripts\playwright install chromium
+.\scripts\run_local.ps1
+```
+
+Daily job locally (optional): `.\scripts\run_daily_local.ps1` (defaults to `--no-email --verbose`; pass your own args to override).
+
+### macOS / Linux
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate

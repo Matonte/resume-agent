@@ -32,6 +32,9 @@ class Targets(BaseModel):
     locations: List[str] = Field(default_factory=list)
     remote_ok: bool = True
     min_base_salary_usd: int = 0
+    #: Drop listings older than this many days when `posted_at` is known.
+    #: 0 = no age filter (unknown ages are always kept).
+    max_posting_age_days: int = 0
 
 
 class Exclude(BaseModel):

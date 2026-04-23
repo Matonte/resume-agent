@@ -40,6 +40,8 @@ class JobRecord:
     location: Optional[str] = None
     salary_raw: Optional[str] = None
     posted_at: Optional[datetime] = None
+    #: Best URL to start an application (company ATS, etc.); falls back to `url`.
+    apply_url: Optional[str] = None
     discovered_at: datetime = field(default_factory=datetime.utcnow)
     jd_full: str = ""
     archetype_id: Optional[str] = None
@@ -112,6 +114,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     location        TEXT,
     salary_raw      TEXT,
     posted_at       TEXT,
+    apply_url       TEXT,
     discovered_at   TEXT NOT NULL,
     jd_full         TEXT NOT NULL DEFAULT '',
     archetype_id    TEXT,
@@ -183,6 +186,10 @@ def _migrate(conn: sqlite3.Connection) -> None:
             "CREATE INDEX IF NOT EXISTS idx_jobs_user_run ON jobs(user_id, daily_run_id)"
         )
 
+    jcols_apply = _table_columns(conn, "jobs")
+    if jcols_apply and "apply_url" not in jcols_apply:
+        conn.execute("ALTER TABLE jobs ADD COLUMN apply_url TEXT")
+
     if _table_columns(conn, "users") and _table_columns(conn, "resume_profiles"):
         row = conn.execute("SELECT COUNT(*) FROM users").fetchone()
         if row and row[0] == 0:
@@ -241,6 +248,7 @@ def _iso_to_dt(value: Optional[str]) -> Optional[datetime]:
 
 def _row_to_job(row: sqlite3.Row) -> JobRecord:
     uid = row["user_id"] if "user_id" in row.keys() else 1
+    apply_u = row["apply_url"] if "apply_url" in row.keys() else None
     return JobRecord(
         id=row["id"],
         source=row["source"],
@@ -251,6 +259,7 @@ def _row_to_job(row: sqlite3.Row) -> JobRecord:
         location=row["location"],
         salary_raw=row["salary_raw"],
         posted_at=_iso_to_dt(row["posted_at"]),
+        apply_url=apply_u if apply_u else None,
         discovered_at=_iso_to_dt(row["discovered_at"]) or datetime.utcnow(),
         jd_full=row["jd_full"] or "",
         archetype_id=row["archetype_id"],
@@ -270,11 +279,11 @@ def upsert_job(conn: sqlite3.Connection, job: JobRecord) -> None:
         """
         INSERT INTO jobs (
             id, source, url, external_id, title, company, location, salary_raw,
-            posted_at, discovered_at, jd_full, archetype_id, fit_score,
+            posted_at, apply_url, discovered_at, jd_full, archetype_id, fit_score,
             artifact_dir, screening_json, status, daily_run_id, user_id
         ) VALUES (
             :id, :source, :url, :external_id, :title, :company, :location, :salary_raw,
-            :posted_at, :discovered_at, :jd_full, :archetype_id, :fit_score,
+            :posted_at, :apply_url, :discovered_at, :jd_full, :archetype_id, :fit_score,
             :artifact_dir, :screening_json, :status, :daily_run_id, :user_id
         )
         ON CONFLICT(id) DO UPDATE SET
@@ -286,6 +295,7 @@ def upsert_job(conn: sqlite3.Connection, job: JobRecord) -> None:
             location       = excluded.location,
             salary_raw     = excluded.salary_raw,
             posted_at      = excluded.posted_at,
+            apply_url      = excluded.apply_url,
             jd_full        = excluded.jd_full,
             archetype_id   = excluded.archetype_id,
             fit_score      = excluded.fit_score,
@@ -309,6 +319,7 @@ def upsert_job(conn: sqlite3.Connection, job: JobRecord) -> None:
             "location": job.location,
             "salary_raw": job.salary_raw,
             "posted_at": _dt_to_iso(job.posted_at),
+            "apply_url": job.apply_url,
             "discovered_at": _dt_to_iso(job.discovered_at),
             "jd_full": job.jd_full,
             "archetype_id": job.archetype_id,

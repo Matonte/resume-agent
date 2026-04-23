@@ -38,6 +38,10 @@
       : '<em class="screening-empty">No screening questions extracted.</em>';
 
     const status = job.status || 'new';
+    const applyHref = job.apply_url || job.url;
+    const listingHref = job.url;
+    const showListingLink =
+      job.apply_url && job.url && String(job.apply_url) !== String(job.url);
     const card = document.createElement('div');
     card.className = 'job-card';
     card.dataset.status = status;
@@ -61,7 +65,12 @@
         <span>status: <strong>${escape(status)}</strong></span>
       </div>
       <div class="job-actions">
-        <a href="${escape(job.url)}" target="_blank" rel="noopener">Posting</a>
+        <a href="${escape(applyHref)}" target="_blank" rel="noopener">Open apply link</a>
+        ${
+          showListingLink
+            ? `<a href="${escape(listingHref)}" target="_blank" rel="noopener">Board listing</a>`
+            : ''
+        }
         <a href="${artifactHref(job.id, 'resume.docx')}">Resume.docx</a>
         <a href="${artifactHref(job.id, 'cover_letter.docx')}">Cover.docx</a>
         <a href="${artifactHref(job.id, 'screening.json')}">Screening.json</a>

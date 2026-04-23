@@ -28,6 +28,8 @@ targets:
     - "Remote (US)"
   remote_ok: true
   min_base_salary_usd: 180000
+  # When the scraper parsed a "Posted X ago" date, drop listings older than this.
+  max_posting_age_days: 14
 
 exclude:
   companies: []

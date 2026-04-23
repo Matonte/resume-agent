@@ -9,7 +9,7 @@ Verifies:
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List
 
@@ -188,6 +188,36 @@ def test_auth_preflight_drops_logged_out_sources(isolated_outputs: Path, monkeyp
     assert good.called, "logged-in source should still run"
     assert not dead.called, "logged-out source should be dropped"
     assert any("linkedin" in e and "not logged in" in e for e in summary.errors)
+    assert summary.kept == 1
+
+
+def test_run_daily_filters_stale_postings(isolated_outputs: Path) -> None:
+    old = _raw("linkedin", 10)
+    old.posted_at = datetime.utcnow() - timedelta(days=30)
+    fresh = _raw("linkedin", 11)
+    fresh.posted_at = datetime.utcnow() - timedelta(days=2)
+
+    scrapers = [_StubScraper("linkedin", [old, fresh])]
+    prefs = Preferences.model_validate({
+        "targets": {
+            "locations": ["New York, NY"],
+            "remote_ok": True,
+            "max_posting_age_days": 14,
+        },
+        "sources": {"linkedin": {"enabled": True}},
+        "daily_cap": 5,
+        "per_source_cap": 5,
+    })
+
+    summary = run_daily(
+        scrapers=scrapers,
+        preferences=prefs,
+        send_email=False,
+        use_llm=False,
+    )
+
+    assert summary.scraped == 2
+    assert summary.filtered == 1
     assert summary.kept == 1
 
 

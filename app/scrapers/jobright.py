@@ -16,11 +16,12 @@ from __future__ import annotations
 
 import logging
 import urllib.parse
-from datetime import datetime
 from typing import List
 
+from app.scrapers.apply_link import guess_external_apply_url
 from app.scrapers.base import RawJob
 from app.scrapers.playwright_session import human_sleep, sync_context
+from app.scrapers.posted_at_heuristic import parse_relative_posted_at
 from app.scrapers.registry import register
 
 logger = logging.getLogger(__name__)
@@ -65,8 +66,9 @@ class JobrightScraper:
 
             # Expand the feed a bit; ignore failures.
             try:
-                page.mouse.wheel(0, 3000)
-                page.wait_for_timeout(1200)
+                for _ in range(3):
+                    page.mouse.wheel(0, 3000)
+                    page.wait_for_timeout(1000)
             except Exception:  # pragma: no cover
                 pass
 
@@ -130,17 +132,21 @@ class JobrightScraper:
             ]) or ""
             if not jd_full or len(jd_full) < 200:
                 return None
+            page_url = (page.url or url).split("?")[0].rstrip("/")
+            posted_blob = _jobright_posted_blob(page)
+            posted_at = parse_relative_posted_at(posted_blob)
+            apply = guess_external_apply_url(page, fallback=page_url)
             return RawJob(
                 source=self.source,
-                url=url,
+                url=page_url,
                 title=title.strip() or "Senior Backend Engineer",
                 company=company.strip() or "Unknown",
                 jd_full=jd_full,
                 location=(location or "").strip() or None,
                 salary_raw=(salary or "").strip() or None,
-                apply_url=url,
-                posted_at=datetime.utcnow(),
-                raw={"card_text": card_text},
+                apply_url=apply,
+                posted_at=posted_at,
+                raw={"card_text": card_text, "posted_blob": posted_blob[:500]},
             )
         except Exception:
             logger.exception("jobright: detail fetch failed for %s", url)
@@ -150,6 +156,21 @@ class JobrightScraper:
                 page.close()
             except Exception:  # pragma: no cover
                 pass
+
+
+def _jobright_posted_blob(page) -> str:
+    try:
+        hdr = _first_text(page, ["header", "article header", "[data-testid='job-header']"])
+        main = ""
+        try:
+            m = page.locator("main").first
+            if m.count():
+                main = (m.inner_text(timeout=2500) or "")[:3500]
+        except Exception:
+            pass
+        return " ".join(x for x in (hdr or "", main) if x)
+    except Exception:
+        return ""
 
 
 def _first_text(page, selectors: List[str]) -> str | None:

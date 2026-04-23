@@ -1,0 +1,15 @@
+# Copy to terraform.tfvars and adjust.
+
+aws_region   = "us-east-1"
+project_name = "resume-agent"
+
+# Graviton — cheapest 4 GiB class in many regions (~see AWS pricing).
+instance_type  = "t4g.medium"
+root_volume_gb = 40
+
+# Optional: lock SSH to your IP; leave [] to use SSM Session Manager only (recommended).
+# ssh_cidr_blocks = ["203.0.113.50/32"]
+
+# HTTPS + automatic Let’s Encrypt (Caddy on the instance). DNS must point to the Elastic IP.
+# app_hostname     = "jobs.example.com"
+# route53_zone_id  = "Z1234567890ABC" # hosted zone for example.com ($0.50/mo)

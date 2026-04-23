@@ -108,7 +108,7 @@ def tailor_job_from_raw(
         "selected_bullets": draft.get("selected_bullets"),
         "draft_notes": draft.get("notes"),
         "llm_applied": draft.get("llm_applied", False),
-        "discovered_at": raw.posted_at.isoformat() if raw.posted_at else None,
+        "posted_at": raw.posted_at.isoformat() if raw.posted_at else None,
         "cover_letter_preview": cover_text[:400],
     }
     (job_dir / "metadata.json").write_text(
@@ -126,6 +126,7 @@ def tailor_job_from_raw(
         location=raw.location,
         salary_raw=raw.salary_raw,
         posted_at=raw.posted_at,
+        apply_url=raw.apply_url or raw.url,
         jd_full=raw.jd_full,
         archetype_id=archetype_id,
         fit_score=fit.score,

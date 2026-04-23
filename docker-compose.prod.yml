@@ -1,0 +1,22 @@
+# Production-style run (e.g. on EC2). Copy .env.example → .env and set secrets.
+# docker compose -f docker-compose.prod.yml up -d
+
+services:
+  app:
+    build: .
+    image: resume-agent:latest
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      DASHBOARD_BASE_URL: ${DASHBOARD_BASE_URL:-http://127.0.0.1:8000}
+      OUTPUTS_DIR: /data/outputs
+      PLAYWRIGHT_PROFILES_DIR: /data/playwright
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}
+    volumes:
+      - agent-data:/data
+    restart: unless-stopped
+
+volumes:
+  agent-data:

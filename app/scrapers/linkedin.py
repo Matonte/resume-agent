@@ -16,11 +16,12 @@ from __future__ import annotations
 
 import logging
 import urllib.parse
-from datetime import datetime
 from typing import List
 
+from app.scrapers.apply_link import guess_external_apply_url
 from app.scrapers.base import RawJob
 from app.scrapers.playwright_session import human_sleep, sync_context
+from app.scrapers.posted_at_heuristic import parse_relative_posted_at
 from app.scrapers.registry import register
 
 logger = logging.getLogger(__name__)
@@ -62,7 +63,7 @@ class LinkedInScraper:
             page.goto(_search_url(query), wait_until="domcontentloaded", timeout=45000)
             human_sleep(prefs)
             try:
-                for _ in range(2):
+                for _ in range(4):
                     page.mouse.wheel(0, 2200)
                     page.wait_for_timeout(900)
             except Exception:  # pragma: no cover
@@ -142,16 +143,20 @@ class LinkedInScraper:
             ]) or ""
             if not jd_full or len(jd_full) < 200:
                 return None
+            page_url = (page.url or url).split("?")[0].rstrip("/")
+            posted_blob = _linkedin_posted_blob(page)
+            posted_at = parse_relative_posted_at(posted_blob)
+            apply = guess_external_apply_url(page, fallback=page_url)
             return RawJob(
                 source=self.source,
-                url=url,
+                url=page_url,
                 title=title.strip(),
                 company=company.strip() or "Unknown",
                 jd_full=jd_full,
                 location=(location or "").strip() or None,
-                apply_url=url,
-                posted_at=datetime.utcnow(),
-                raw={"card_text": card_text},
+                apply_url=apply,
+                posted_at=posted_at,
+                raw={"card_text": card_text, "posted_blob": posted_blob[:500]},
             )
         except Exception:
             logger.exception("linkedin: detail fetch failed for %s", url)
@@ -161,6 +166,26 @@ class LinkedInScraper:
                 page.close()
             except Exception:  # pragma: no cover
                 pass
+
+
+def _linkedin_posted_blob(page) -> str:
+    chunks: List[str] = []
+    for sel in (
+        ".job-details-jobs-unified-top-card__primary-description",
+        ".job-details-jobs-unified-top-card__tertiary-description",
+        "span.jobs-unified-top-card__posted-date",
+        ".jobs-unified-top-card__subtitle",
+    ):
+        try:
+            loc = page.locator(sel).first
+            if loc.count() == 0:
+                continue
+            txt = loc.inner_text(timeout=1500)
+            if txt and txt.strip():
+                chunks.append(txt.strip())
+        except Exception:
+            continue
+    return " ".join(chunks)
 
 
 def _first_text(page, selectors: List[str]) -> str | None:

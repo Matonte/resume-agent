@@ -33,6 +33,10 @@ def _fmt_fit(score: Optional[float]) -> str:
     return f"{score:.1f}/10" if isinstance(score, (int, float)) else "-"
 
 
+def _posting_href(job: JobRecord) -> str:
+    return (job.apply_url or job.url or "").strip()
+
+
 def render_digest_html(jobs: Iterable[JobRecord], for_date: date) -> str:
     """Pure HTML renderer so tests can assert on structure without SMTP."""
     jobs = list(jobs)
@@ -46,7 +50,7 @@ def render_digest_html(jobs: Iterable[JobRecord], for_date: date) -> str:
             f"<td style='padding:6px 10px;'>{html.escape(j.location or '-')}</td>"
             f"<td style='padding:6px 10px;'>{html.escape(j.source)}</td>"
             f"<td style='padding:6px 10px;'>{_fmt_fit(j.fit_score)}</td>"
-            f"<td style='padding:6px 10px;'><a href='{html.escape(j.url)}'>post</a></td>"
+            f"<td style='padding:6px 10px;'><a href='{html.escape(_posting_href(j))}'>post</a></td>"
             "</tr>"
         )
     table_body = "\n".join(rows) or (
@@ -85,7 +89,7 @@ def render_digest_text(jobs: Iterable[JobRecord], for_date: date) -> str:
     for j in jobs:
         lines.append(
             f"- [{_fmt_fit(j.fit_score)}] {j.title} at {j.company} "
-            f"({j.source}, {j.location or '-'})\n  {j.url}"
+            f"({j.source}, {j.location or '-'})\n  {_posting_href(j)}"
         )
     if not jobs:
         lines.append("  (no jobs today)")
