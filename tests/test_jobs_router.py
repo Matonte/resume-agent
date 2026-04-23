@@ -102,4 +102,4 @@ def test_artifact_refuses_unknown_file(client: TestClient) -> None:
 def test_jobs_today_page_serves(client: TestClient) -> None:
     res = client.get("/jobs/today")
     assert res.status_code == 200
-    assert "Today's Jobs" in res.text
+    assert "Today's queue" in res.text

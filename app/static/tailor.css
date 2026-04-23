@@ -1,3 +1,5 @@
+/* Manual tailor — inherits enterprise tokens from styles.css */
+
 .tailor-panel {
   display: flex;
   flex-direction: column;
@@ -7,50 +9,64 @@
 .tailor-form {
   display: flex;
   flex-direction: column;
-  gap: 1.1rem;
+  gap: 1.15rem;
 }
 
 .tailor-form .field {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.4rem;
 }
 
 .tailor-form label {
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
 }
 
 .tailor-form input[type="text"],
 .tailor-form input[type="url"],
 .tailor-form textarea {
   width: 100%;
-  padding: 0.6rem 0.7rem;
-  border: 1px solid #cfd4dc;
-  border-radius: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-inner);
   font: inherit;
-  font-size: 0.95rem;
-  background: #fff;
+  font-size: 0.9rem;
+  background: var(--bg-grid);
+  color: var(--fg);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.tailor-form input:focus,
+.tailor-form textarea:focus {
+  border-color: var(--accent-dim);
+  box-shadow: 0 0 0 1px var(--accent-glow);
+  outline: none;
 }
 
 .tailor-form textarea {
   resize: vertical;
-  min-height: 180px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.85rem;
-  line-height: 1.45;
+  min-height: 200px;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  line-height: 1.5;
 }
 
 .tailor-form .hint {
   margin: 0;
-  color: #6b7280;
-  font-size: 0.82rem;
+  color: var(--fg-dim);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  max-width: 62em;
 }
 
 .tailor-form .field-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.85rem;
+  gap: 1rem;
 }
 
 .tailor-form .field-row-controls {
@@ -59,82 +75,163 @@
   justify-content: space-between;
   gap: 1rem;
   flex-wrap: wrap;
+  padding-top: 4px;
 }
 
 .tailor-form .checkbox {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.5rem;
   font-weight: 500;
+  font-size: 0.82rem;
+  color: var(--fg-muted);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.tailor-form .checkbox input {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
 }
 
 .tailor-form button.primary {
-  background: #1d4ed8;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  padding: 0.7rem 1.2rem;
+  background: var(--accent-dim);
+  color: var(--bg-void);
+  border: 1px solid var(--accent);
+  padding: 11px 20px;
   cursor: pointer;
-  font-size: 0.95rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  transition: background var(--transition), border-color var(--transition);
 }
+
+.tailor-form button.primary:hover:not(:disabled) {
+  background: var(--accent);
+}
+
 .tailor-form button.primary:disabled {
-  background: #9ca3af;
+  opacity: 0.45;
   cursor: progress;
 }
 
-.status {
-  padding: 0.8rem 1rem;
-  border-radius: 6px;
-  font-size: 0.9rem;
+/* Status strip — dark variants */
+#status.status {
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
 }
-.status.info    { background: #eff6ff; color: #1e3a8a; border: 1px solid #bfdbfe; }
-.status.warn    { background: #fefce8; color: #854d0e; border: 1px solid #fde68a; }
-.status.error   { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
-.status.success { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
 
-.result-panel {
-  margin-top: 1rem;
+.status.info {
+  background: rgba(74, 143, 158, 0.12);
+  color: #9ec4cc;
+  border-color: var(--accent-2);
+}
+
+.status.warn {
+  background: rgba(154, 138, 74, 0.12);
+  color: #c9c0a0;
+  border-color: var(--warn);
+}
+
+.status.error {
+  background: rgba(154, 74, 82, 0.12);
+  color: #d4a8ac;
+  border-color: var(--danger-muted);
+}
+
+.status.success {
+  background: rgba(61, 138, 106, 0.12);
+  color: #9ec4b5;
+  border-color: var(--ok);
+}
+
+.result-panel h2 {
+  margin: 0 0 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg);
 }
 
 .result-meta {
   display: grid;
   grid-template-columns: max-content 1fr;
-  gap: 0.35rem 1rem;
+  gap: 0.4rem 1.25rem;
   margin: 0.5rem 0 1rem 0;
 }
-.result-meta dt { color: #6b7280; font-weight: 600; }
-.result-meta dd { margin: 0; }
+
+.result-meta dt {
+  color: var(--fg-dim);
+  font-weight: 600;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+}
+
+.result-meta dd {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: 0.88rem;
+}
 
 .result-summary {
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  padding: 0.8rem;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  color: #374151;
+  background: var(--bg-grid);
+  border: 1px solid var(--border);
+  padding: 12px 14px;
+  border-radius: var(--radius-inner);
+  font-size: 0.84rem;
+  color: var(--fg-muted);
+  line-height: 1.55;
+  border-left: 2px solid var(--accent-dim);
 }
 
 .result-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.6rem;
+  gap: 8px;
   margin-top: 1rem;
 }
+
 .result-actions .action {
-  padding: 0.55rem 0.9rem;
-  border-radius: 6px;
+  padding: 8px 14px;
   text-decoration: none;
-  border: 1px solid #d1d5db;
-  color: #1f2937;
-  background: #fff;
-  font-size: 0.9rem;
+  border: 1px solid var(--border);
+  color: var(--fg-muted);
+  background: var(--panel);
+  font-size: 0.68rem;
+  font-family: var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  transition: border-color var(--transition), color var(--transition), background var(--transition);
 }
+
+.result-actions .action:hover {
+  border-color: var(--accent-dim);
+  color: var(--accent);
+  background: var(--panel-hover);
+}
+
 .result-actions .action.primary {
-  background: #1d4ed8;
-  color: #fff;
-  border-color: #1d4ed8;
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--bg-void);
+  font-weight: 600;
+}
+
+.result-actions .action.primary:hover {
+  background: var(--accent);
 }
 
 @media (max-width: 720px) {
-  .tailor-form .field-row { grid-template-columns: 1fr; }
+  .tailor-form .field-row {
+    grid-template-columns: 1fr;
+  }
 }

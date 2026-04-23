@@ -31,13 +31,11 @@
           .map(
             (s) =>
               `<details><summary>${escape(s.question || '(question)')}</summary>` +
-              `<p style="white-space:pre-wrap;margin:6px 0 0 0;">${escape(s.answer || '')}</p>` +
-              `<p style="color:#888;font-size:12px;margin:4px 0 0 0;">source: ${escape(
-                s.source || 'template',
-              )}</p></details>`,
+              `<p class="screening-answer">${escape(s.answer || '')}</p>` +
+              `<p class="screening-source">source: ${escape(s.source || 'template')}</p></details>`,
           )
           .join('')
-      : '<em style="color:#888;">No screening questions extracted.</em>';
+      : '<em class="screening-empty">No screening questions extracted.</em>';
 
     const status = job.status || 'new';
     const card = document.createElement('div');
@@ -78,7 +76,7 @@
       </div>
       <details>
         <summary>Full JD</summary>
-        <pre style="white-space:pre-wrap;font-family:inherit;">${escape(jd).slice(0, 4000)}</pre>
+        <div class="jd-preview">${escape(jd).slice(0, 4000)}</div>
       </details>
     `;
 
