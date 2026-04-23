@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Resume Agent — Manual Tailor</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/jobs_today.css" />
+  <link rel="stylesheet" href="/static/tailor.css" />
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <h1>Manual Tailor</h1>
+        <p class="subtitle">
+          Paste a job posting URL or the description text. We generate the same
+          tailored resume, cover letter, and screening answers that the nightly
+          run produces, and drop them into today's dashboard.
+        </p>
+      </div>
+      <div class="links">
+        <a href="/jobs/today">Today's jobs</a>
+        <a href="/">Single-job review</a>
+        <a href="/docs" target="_blank">/docs</a>
+      </div>
+    </header>
+
+    <section class="panel tailor-panel">
+      <form id="tailor-form" class="tailor-form" autocomplete="off">
+        <div class="field">
+          <label for="url">Job posting URL (optional)</label>
+          <input id="url" name="url" type="url" placeholder="https://www.welcometothejungle.com/en/companies/stripe/jobs/…" />
+          <p class="hint">
+            If the page renders its description server-side (most Greenhouse,
+            Lever, Ashby, and public WTTJ pages do), just pasting the URL is
+            enough. If the fetch fails we'll tell you and you can paste the
+            description below instead.
+          </p>
+        </div>
+
+        <div class="field">
+          <label for="description">Job description (optional if URL provided)</label>
+          <textarea
+            id="description"
+            name="description"
+            rows="14"
+            placeholder="Paste the full job description text here. At least 100 characters."></textarea>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="company">Company (optional)</label>
+            <input id="company" name="company" type="text" placeholder="Stripe" />
+          </div>
+          <div class="field">
+            <label for="title">Title (optional)</label>
+            <input id="title" name="title" type="text" placeholder="Senior Backend Engineer" />
+          </div>
+          <div class="field">
+            <label for="location">Location (optional)</label>
+            <input id="location" name="location" type="text" placeholder="New York, NY / Remote" />
+          </div>
+        </div>
+
+        <div class="field-row field-row-controls">
+          <label class="checkbox">
+            <input id="use-llm" name="use_llm" type="checkbox" checked />
+            <span>Use LLM polish (slower; uses your OpenAI key)</span>
+          </label>
+          <button id="submit-btn" type="submit" class="primary">Generate tailored package</button>
+        </div>
+      </form>
+
+      <div id="status" class="status" hidden></div>
+    </section>
+
+    <section id="result-panel" class="panel result-panel" hidden>
+      <h2 id="result-title">Tailored</h2>
+      <dl class="result-meta">
+        <dt>Company</dt> <dd id="result-company">-</dd>
+        <dt>Archetype</dt> <dd id="result-archetype">-</dd>
+        <dt>Fit score</dt> <dd id="result-fit">-</dd>
+        <dt>Location</dt> <dd id="result-location">-</dd>
+      </dl>
+      <p id="result-summary" class="result-summary"></p>
+
+      <div class="result-actions">
+        <a id="dl-resume" class="action primary" href="#" target="_blank" rel="noopener">Download resume.docx</a>
+        <a id="dl-cover" class="action primary" href="#" target="_blank" rel="noopener">Download cover_letter.docx</a>
+        <a id="dl-screening" class="action" href="#" target="_blank" rel="noopener">screening.json</a>
+        <a id="dl-metadata" class="action" href="#" target="_blank" rel="noopener">metadata.json</a>
+        <a id="open-dashboard" class="action" href="/jobs/today">Open today's dashboard</a>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/tailor.js"></script>
+</body>
+</html>

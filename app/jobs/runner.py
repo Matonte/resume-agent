@@ -22,35 +22,24 @@ The runner is fully testable with mocked scrapers and no network.
 
 from __future__ import annotations
 
-import json
 import logging
-import traceback
 from dataclasses import dataclass
 from datetime import date, datetime
-from pathlib import Path
-from typing import Callable, List, Optional, Sequence
+from typing import List, Optional, Sequence
 
 from app.jobs.preferences import Preferences, load_preferences
-from app.packaging.cover_letter import build_cover_letter, write_cover_letter_docx
-from app.packaging.screening import answer_questions, extract_questions
+from app.jobs.tailor import tailor_job_from_raw
 from app.scrapers.base import RawJob, Scraper
 from app.scrapers.registry import get_scraper
-from app.services.classifier import classify_job
-from app.services.fit_score import compute_fit_score
-from app.services.resume_docx import generate_tailored_resume_bytes
-from app.services.resume_tailor import generate_resume_draft
 from app.storage.db import (
     STATUS_FAILED,
-    STATUS_NEW,
     STATUS_SKIPPED,
     DailyRun,
     JobRecord,
-    artifact_dir_for,
     get_conn,
     insert_daily_run,
     list_jobs_for_date,
     update_daily_run,
-    update_job_status,
     upsert_job,
 )
 
@@ -268,89 +257,16 @@ def _tailor_one(
     *,
     use_llm: bool,
 ) -> _ScoredTailoredJob:
-    """Produce a fully tailored package for a single RawJob: resume draft,
-    resume.docx, cover_letter.docx, screening.json, metadata.json."""
-    classification = classify_job(raw.jd_full)
-    archetype_id = classification.archetype_id
+    """Produce a fully tailored package for a single RawJob.
 
-    fit = compute_fit_score(raw.jd_full)
-
-    draft = generate_resume_draft(
-        job_description=raw.jd_full,
-        archetype_id=archetype_id,
-        use_llm=use_llm,
+    Thin wrapper around `app.jobs.tailor.tailor_job_from_raw` so both the
+    daily runner and the manual `/tailor` endpoint share exactly the same
+    tailoring pipeline.
+    """
+    tailored = tailor_job_from_raw(
+        raw, prefs, run_id=run_id, run_date=run_date, use_llm=use_llm,
     )
-
-    job_id = JobRecord.make_id(raw.source, raw.url)
-    job_dir = artifact_dir_for(job_id, run_date)
-
-    resume_bytes = generate_tailored_resume_bytes(
-        archetype_id=archetype_id,
-        job_description=raw.jd_full,
-        use_llm=use_llm,
-    )
-    (job_dir / "resume.docx").write_bytes(resume_bytes)
-
-    cover_text = build_cover_letter(
-        candidate_name=prefs.candidate.name,
-        company=raw.company,
-        title=raw.title,
-        archetype_id=archetype_id,
-        job_description=raw.jd_full,
-        use_llm=use_llm,
-    )
-    write_cover_letter_docx(cover_text, job_dir / "cover_letter.docx")
-
-    questions = extract_questions(raw.jd_full)
-    screening = answer_questions(questions, archetype_id=archetype_id, use_llm=use_llm)
-    (job_dir / "screening.json").write_text(
-        json.dumps(screening, indent=2, ensure_ascii=False),
-        encoding="utf-8",
-    )
-
-    metadata = {
-        "job_id": job_id,
-        "source": raw.source,
-        "url": raw.url,
-        "apply_url": raw.apply_url or raw.url,
-        "title": raw.title,
-        "company": raw.company,
-        "location": raw.location,
-        "salary_raw": raw.salary_raw,
-        "archetype_id": archetype_id,
-        "fit_score": fit.score,
-        "fit_band": fit.band,
-        "summary": draft.get("summary"),
-        "selected_bullets": draft.get("selected_bullets"),
-        "draft_notes": draft.get("notes"),
-        "llm_applied": draft.get("llm_applied", False),
-        "discovered_at": raw.posted_at.isoformat() if raw.posted_at else None,
-        "cover_letter_preview": cover_text[:400],
-    }
-    (job_dir / "metadata.json").write_text(
-        json.dumps(metadata, indent=2, ensure_ascii=False),
-        encoding="utf-8",
-    )
-
-    record = JobRecord(
-        id=job_id,
-        source=raw.source,
-        url=raw.url,
-        external_id=raw.external_id,
-        title=raw.title,
-        company=raw.company,
-        location=raw.location,
-        salary_raw=raw.salary_raw,
-        posted_at=raw.posted_at,
-        jd_full=raw.jd_full,
-        archetype_id=archetype_id,
-        fit_score=fit.score,
-        artifact_dir=str(job_dir),
-        screening=screening,
-        status=STATUS_NEW,
-        daily_run_id=run_id,
-    )
-    return _ScoredTailoredJob(record=record)
+    return _ScoredTailoredJob(record=tailored.record)
 
 
 def _failed_stub(raw: RawJob, run_id: str) -> _ScoredTailoredJob:
