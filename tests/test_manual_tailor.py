@@ -29,6 +29,20 @@ _JD_TEXT = (
 )
 
 
+def test_manual_tailor_get_shows_usage_hints(client):
+    resp = client.get("/api/manual-tailor")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["method"] == "POST"
+    assert data["ui"] == "/tailor"
+
+
+def test_manual_tailor_alias_path_redirects_to_ui(client):
+    resp = client.get("/manual-tailor", follow_redirects=False)
+    assert resp.status_code == 307
+    assert resp.headers.get("location") == "/tailor"
+
+
 def test_manual_tailor_description_only_path(client):
     resp = client.post(
         "/api/manual-tailor",

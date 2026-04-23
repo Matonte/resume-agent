@@ -97,6 +97,25 @@ def _artifact_urls(job_id: str) -> Dict[str, str]:
     }
 
 
+@router.get("/api/manual-tailor")
+def manual_tailor_get() -> JSONResponse:
+    """Opening this URL in a browser sends GET; return a hint instead of 405."""
+    return JSONResponse(
+        {
+            "message": "Use POST with JSON body (url and/or description).",
+            "ui": "/tailor",
+            "method": "POST",
+            "example_body": {
+                "url": "https://boards.greenhouse.io/example/jobs/123",
+                "description": None,
+                "company": None,
+                "title": None,
+                "use_llm": True,
+            },
+        }
+    )
+
+
 @router.post("/api/manual-tailor", response_model=ManualTailorResponse)
 def manual_tailor(payload: ManualTailorRequest) -> Any:
     if not payload.has_jd_source():

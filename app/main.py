@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.routers.api import router
@@ -36,3 +36,9 @@ def tailor_page() -> HTMLResponse:
     """Manual-tailor form. Posts to /api/manual-tailor."""
     html = (TEMPLATES_DIR / "tailor.html").read_text(encoding="utf-8")
     return HTMLResponse(content=html)
+
+
+@app.get("/manual-tailor")
+def manual_tailor_alias_redirect() -> RedirectResponse:
+    """People often guess /manual-tailor; send them to the real UI."""
+    return RedirectResponse(url="/tailor", status_code=307)
