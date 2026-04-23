@@ -42,7 +42,7 @@ def _seed_job(run_id: str, *, job_id: str, fit: float, status: str = STATUS_NEW)
         daily_run_id=run_id,
     )
     with get_conn() as conn:
-        run = DailyRun(id=run_id, ran_at=datetime.utcnow())
+        run = DailyRun(id=run_id, ran_at=datetime.utcnow(), user_id=1)
         insert_daily_run(conn, run)
         upsert_job(conn, job)
     return job

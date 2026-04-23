@@ -1,20 +1,4 @@
-"""SQLite storage for the daily job agent.
-
-Two tables; everything else we need is derived.
-
-- `jobs`       : each discovered job with its status through the pipeline.
-- `daily_runs` : one row per orchestration run, with counters and errors.
-
-The DB file lives at `<outputs_dir>/jobs.sqlite`. The `outputs_dir` comes
-from `app.config.settings` so tests can point it at a temp directory by
-overriding the env var or passing an explicit `db_path` to `get_conn` /
-`init_db`.
-
-Status lifecycle for a job:
-    new -> approved -> submitted
-     \-> skipped
-     \-> failed          (something broke during tailoring)
-"""
+"""SQLite storage for the daily job agent + user accounts."""
 
 from __future__ import annotations
 
@@ -41,13 +25,9 @@ _VALID_STATUSES = {
 }
 
 
-# ----------------- data classes -----------------
-
-
 @dataclass
 class JobRecord:
-    """One scraped + tailored job. `id` is deterministic so re-running the
-    scrapers on the same URL is idempotent."""
+    """One scraped + tailored job."""
 
     id: str
     source: str
@@ -55,6 +35,7 @@ class JobRecord:
     title: str
     company: str
     daily_run_id: str
+    user_id: int = 1
     external_id: Optional[str] = None
     location: Optional[str] = None
     salary_raw: Optional[str] = None
@@ -68,8 +49,12 @@ class JobRecord:
     status: str = STATUS_NEW
 
     @staticmethod
-    def make_id(source: str, url: str) -> str:
-        return hashlib.sha1(f"{source}||{url}".encode("utf-8")).hexdigest()[:16]
+    def make_id(source: str, url: str, user_id: int = 1) -> str:
+        if user_id <= 1:
+            raw = f"{source}||{url}"
+        else:
+            raw = f"{user_id}|{source}|{url}"
+        return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16]
 
 
 @dataclass
@@ -81,14 +66,14 @@ class DailyRun:
     email_sent: bool = False
     status: str = "running"
     error: Optional[str] = None
+    user_id: int = 1
 
     @staticmethod
-    def make_id(for_date: Optional[date] = None) -> str:
+    def make_id(for_date: Optional[date] = None, user_id: int = 1) -> str:
         d = for_date or datetime.utcnow().date()
-        return d.isoformat()
-
-
-# ----------------- path helpers -----------------
+        if user_id <= 1:
+            return d.isoformat()
+        return f"{d.isoformat()}__u{user_id}"
 
 
 def _resolve_db_path(db_path: Optional[Path | str]) -> Path:
@@ -99,18 +84,24 @@ def _resolve_db_path(db_path: Optional[Path | str]) -> Path:
     return out / "jobs.sqlite"
 
 
-def artifact_dir_for(job_id: str, for_date: Optional[date] = None) -> Path:
-    """`outputs/YYYY-MM-DD/job_<id>/` — created if it doesn't exist."""
+def artifact_dir_for(
+    job_id: str,
+    for_date: Optional[date] = None,
+    *,
+    user_id: int = 1,
+) -> Path:
+    """Artifact folder. User 1 keeps legacy flat layout; others nest under u{n}."""
     d = for_date or datetime.utcnow().date()
-    path = settings.outputs_path / d.isoformat() / f"job_{job_id}"
+    day_dir = settings.outputs_path / d.isoformat()
+    if user_id <= 1:
+        path = day_dir / f"job_{job_id}"
+    else:
+        path = day_dir / f"u{user_id}" / f"job_{job_id}"
     path.mkdir(parents=True, exist_ok=True)
     return path
 
 
-# ----------------- schema -----------------
-
-
-_SCHEMA = """
+_BASE_SCHEMA = """
 CREATE TABLE IF NOT EXISTS jobs (
     id              TEXT PRIMARY KEY,
     source          TEXT NOT NULL,
@@ -128,7 +119,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     artifact_dir    TEXT,
     screening_json  TEXT NOT NULL DEFAULT '[]',
     status          TEXT NOT NULL DEFAULT 'new',
-    daily_run_id    TEXT NOT NULL
+    daily_run_id    TEXT NOT NULL,
+    user_id         INTEGER NOT NULL DEFAULT 1
 );
 CREATE INDEX IF NOT EXISTS idx_jobs_daily_run ON jobs(daily_run_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_status    ON jobs(status);
@@ -140,36 +132,98 @@ CREATE TABLE IF NOT EXISTS daily_runs (
     tailored    INTEGER NOT NULL DEFAULT 0,
     email_sent  INTEGER NOT NULL DEFAULT 0,
     status      TEXT NOT NULL DEFAULT 'running',
-    error       TEXT
+    error       TEXT,
+    user_id     INTEGER NOT NULL DEFAULT 1
 );
+
+CREATE TABLE IF NOT EXISTS users (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    email               TEXT NOT NULL UNIQUE,
+    password_hash       TEXT NOT NULL DEFAULT '',
+    display_name        TEXT NOT NULL DEFAULT '',
+    active_profile_id   INTEGER,
+    created_at          TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS resume_profiles (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL,
+    name            TEXT NOT NULL,
+    slug            TEXT NOT NULL,
+    use_builtin     INTEGER NOT NULL DEFAULT 0,
+    candidate_name  TEXT NOT NULL DEFAULT '',
+    candidate_email TEXT NOT NULL DEFAULT '',
+    rel_storage     TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, slug),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_profiles_user ON resume_profiles(user_id);
 """
 
 
+def _table_columns(conn: sqlite3.Connection, table: str) -> set[str]:
+    cur = conn.execute(f"PRAGMA table_info({table})")
+    return {str(r[1]) for r in cur.fetchall()}
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    conn.executescript(_BASE_SCHEMA)
+    # Upgrade path: old DBs missing columns / tables.
+    jcols = _table_columns(conn, "jobs")
+    if jcols and "user_id" not in jcols:
+        conn.execute("ALTER TABLE jobs ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1")
+    rcols = _table_columns(conn, "daily_runs")
+    if rcols and "user_id" not in rcols:
+        conn.execute("ALTER TABLE daily_runs ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1")
+
+    jcols2 = _table_columns(conn, "jobs")
+    if jcols2 and "user_id" in jcols2:
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_jobs_user_run ON jobs(user_id, daily_run_id)"
+        )
+
+    if _table_columns(conn, "users") and _table_columns(conn, "resume_profiles"):
+        row = conn.execute("SELECT COUNT(*) FROM users").fetchone()
+        if row and row[0] == 0:
+            conn.execute(
+                """
+                INSERT INTO users (id, email, password_hash, display_name, active_profile_id)
+                VALUES (1, 'workspace@local', '', 'Default workspace', NULL)
+                """
+            )
+            conn.execute(
+                """
+                INSERT INTO resume_profiles (
+                    id, user_id, name, slug, use_builtin, candidate_name, candidate_email, rel_storage
+                ) VALUES (1, 1, 'Repository data', 'default', 1, '', '', NULL)
+                """
+            )
+            conn.execute(
+                "UPDATE users SET active_profile_id = 1 WHERE id = 1"
+            )
+    conn.commit()
+
+
 def init_db(db_path: Optional[Path | str] = None) -> Path:
-    """Create tables if missing. Safe to call repeatedly."""
     path = _resolve_db_path(db_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(path) as conn:
-        conn.executescript(_SCHEMA)
-        conn.commit()
+        conn.execute("PRAGMA foreign_keys = ON")
+        _migrate(conn)
     return path
 
 
 @contextmanager
 def get_conn(db_path: Optional[Path | str] = None) -> Iterator[sqlite3.Connection]:
-    """Yield a connection with `sqlite3.Row` row factory and the schema
-    already applied. Caller is responsible for commit/rollback semantics;
-    this context manager just closes the connection on exit."""
     path = init_db(db_path)
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
     try:
         yield conn
     finally:
         conn.close()
-
-
-# ----------------- (de)serialization -----------------
 
 
 def _dt_to_iso(value: Optional[datetime]) -> Optional[str]:
@@ -186,6 +240,7 @@ def _iso_to_dt(value: Optional[str]) -> Optional[datetime]:
 
 
 def _row_to_job(row: sqlite3.Row) -> JobRecord:
+    uid = row["user_id"] if "user_id" in row.keys() else 1
     return JobRecord(
         id=row["id"],
         source=row["source"],
@@ -204,15 +259,11 @@ def _row_to_job(row: sqlite3.Row) -> JobRecord:
         screening=json.loads(row["screening_json"] or "[]"),
         status=row["status"] or STATUS_NEW,
         daily_run_id=row["daily_run_id"],
+        user_id=int(uid),
     )
 
 
-# ----------------- job CRUD -----------------
-
-
 def upsert_job(conn: sqlite3.Connection, job: JobRecord) -> None:
-    """Insert or update a job by its primary key. We never clobber a
-    `submitted`/`approved` status with a re-discovery that still says `new`."""
     if job.status not in _VALID_STATUSES:
         raise ValueError(f"invalid job status: {job.status!r}")
     conn.execute(
@@ -220,11 +271,11 @@ def upsert_job(conn: sqlite3.Connection, job: JobRecord) -> None:
         INSERT INTO jobs (
             id, source, url, external_id, title, company, location, salary_raw,
             posted_at, discovered_at, jd_full, archetype_id, fit_score,
-            artifact_dir, screening_json, status, daily_run_id
+            artifact_dir, screening_json, status, daily_run_id, user_id
         ) VALUES (
             :id, :source, :url, :external_id, :title, :company, :location, :salary_raw,
             :posted_at, :discovered_at, :jd_full, :archetype_id, :fit_score,
-            :artifact_dir, :screening_json, :status, :daily_run_id
+            :artifact_dir, :screening_json, :status, :daily_run_id, :user_id
         )
         ON CONFLICT(id) DO UPDATE SET
             source         = excluded.source,
@@ -241,7 +292,7 @@ def upsert_job(conn: sqlite3.Connection, job: JobRecord) -> None:
             artifact_dir   = excluded.artifact_dir,
             screening_json = excluded.screening_json,
             daily_run_id   = excluded.daily_run_id,
-            -- preserve terminal statuses, only bump new->new or fill blanks
+            user_id        = excluded.user_id,
             status         = CASE
                 WHEN jobs.status IN ('approved','submitted','skipped')
                     THEN jobs.status
@@ -266,50 +317,83 @@ def upsert_job(conn: sqlite3.Connection, job: JobRecord) -> None:
             "screening_json": json.dumps(job.screening or []),
             "status": job.status,
             "daily_run_id": job.daily_run_id,
+            "user_id": job.user_id,
         },
     )
     conn.commit()
 
 
-def load_job(conn: sqlite3.Connection, job_id: str) -> Optional[JobRecord]:
-    row = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+def load_job(
+    conn: sqlite3.Connection,
+    job_id: str,
+    *,
+    user_id: Optional[int] = None,
+) -> Optional[JobRecord]:
+    if user_id is not None:
+        row = conn.execute(
+            "SELECT * FROM jobs WHERE id = ? AND user_id = ?",
+            (job_id, user_id),
+        ).fetchone()
+    else:
+        row = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
     return _row_to_job(row) if row else None
 
 
 def list_jobs_for_date(
-    conn: sqlite3.Connection, daily_run_id: str
+    conn: sqlite3.Connection,
+    daily_run_id: str,
+    *,
+    user_id: Optional[int] = None,
 ) -> List[JobRecord]:
-    rows = conn.execute(
-        "SELECT * FROM jobs WHERE daily_run_id = ? ORDER BY fit_score DESC, discovered_at ASC",
-        (daily_run_id,),
-    ).fetchall()
+    if user_id is not None:
+        rows = conn.execute(
+            """
+            SELECT * FROM jobs
+            WHERE daily_run_id = ? AND user_id = ?
+            ORDER BY fit_score DESC, discovered_at ASC
+            """,
+            (daily_run_id, user_id),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT * FROM jobs WHERE daily_run_id = ? ORDER BY fit_score DESC, discovered_at ASC",
+            (daily_run_id,),
+        ).fetchall()
     return [_row_to_job(r) for r in rows]
 
 
 def update_job_status(
-    conn: sqlite3.Connection, job_id: str, status: str
+    conn: sqlite3.Connection,
+    job_id: str,
+    status: str,
+    *,
+    user_id: Optional[int] = None,
 ) -> None:
     if status not in _VALID_STATUSES:
         raise ValueError(f"invalid job status: {status!r}")
-    conn.execute("UPDATE jobs SET status = ? WHERE id = ?", (status, job_id))
+    if user_id is not None:
+        conn.execute(
+            "UPDATE jobs SET status = ? WHERE id = ? AND user_id = ?",
+            (status, job_id, user_id),
+        )
+    else:
+        conn.execute("UPDATE jobs SET status = ? WHERE id = ?", (status, job_id))
     conn.commit()
-
-
-# ----------------- daily_runs CRUD -----------------
 
 
 def insert_daily_run(conn: sqlite3.Connection, run: DailyRun) -> None:
     conn.execute(
         """
-        INSERT INTO daily_runs (id, ran_at, scraped, tailored, email_sent, status, error)
-        VALUES (:id, :ran_at, :scraped, :tailored, :email_sent, :status, :error)
+        INSERT INTO daily_runs (id, ran_at, scraped, tailored, email_sent, status, error, user_id)
+        VALUES (:id, :ran_at, :scraped, :tailored, :email_sent, :status, :error, :user_id)
         ON CONFLICT(id) DO UPDATE SET
             ran_at = excluded.ran_at,
             scraped = excluded.scraped,
             tailored = excluded.tailored,
             email_sent = excluded.email_sent,
             status = excluded.status,
-            error = excluded.error
+            error = excluded.error,
+            user_id = excluded.user_id
         """,
         {
             "id": run.id,
@@ -319,6 +403,7 @@ def insert_daily_run(conn: sqlite3.Connection, run: DailyRun) -> None:
             "email_sent": 1 if run.email_sent else 0,
             "status": run.status,
             "error": run.error,
+            "user_id": run.user_id,
         },
     )
     conn.commit()

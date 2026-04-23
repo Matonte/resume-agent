@@ -3,19 +3,38 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
 
+from app.config import settings
+from app.middleware.profile_bind import ProfileDataMiddleware
 from app.routers.api import router
+from app.routers.auth_api import router as auth_router
 from app.routers.jobs import router as jobs_router
 from app.routers.manual import router as manual_router
+from app.routers.profiles_api import router as profiles_router
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 TEMPLATES_DIR = BASE_DIR / "templates"
 
-app = FastAPI(title="Resume Agent Starter", version="0.3.0")
+app = FastAPI(title="Resume Agent Starter", version="0.4.0")
+
+# Last-added middleware runs first on the request. Session must run before
+# ProfileDataMiddleware reads request.session.
+app.add_middleware(ProfileDataMiddleware)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.session_secret,
+    session_cookie="ra_session",
+    max_age=14 * 24 * 3600,
+    same_site="lax",
+)
+
 app.include_router(router, prefix="/api")
-app.include_router(jobs_router)  # already self-prefixed with /api/jobs
-app.include_router(manual_router)  # POST /api/manual-tailor
+app.include_router(auth_router)
+app.include_router(profiles_router)
+app.include_router(jobs_router)
+app.include_router(manual_router)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
@@ -33,12 +52,16 @@ def jobs_today_page() -> HTMLResponse:
 
 @app.get("/tailor", response_class=HTMLResponse)
 def tailor_page() -> HTMLResponse:
-    """Manual-tailor form. Posts to /api/manual-tailor."""
     html = (TEMPLATES_DIR / "tailor.html").read_text(encoding="utf-8")
+    return HTMLResponse(content=html)
+
+
+@app.get("/account", response_class=HTMLResponse)
+def account_page() -> HTMLResponse:
+    html = (TEMPLATES_DIR / "account.html").read_text(encoding="utf-8")
     return HTMLResponse(content=html)
 
 
 @app.get("/manual-tailor")
 def manual_tailor_alias_redirect() -> RedirectResponse:
-    """People often guess /manual-tailor; send them to the real UI."""
     return RedirectResponse(url="/tailor", status_code=307)

@@ -9,7 +9,7 @@ time.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import yaml
 from pydantic import BaseModel, Field, field_validator
@@ -102,6 +102,28 @@ class Preferences(BaseModel):
         return False
 
 
+def merge_preferences_candidate(
+    prefs: Preferences,
+    profile: Optional[Any],
+) -> Preferences:
+    """Overlay `profile.candidate_name` / `candidate_email` onto prefs for
+    cover letters and packaging when the active resume profile defines them."""
+    if profile is None:
+        return prefs
+    name = (getattr(profile, "candidate_name", None) or "").strip()
+    email = (getattr(profile, "candidate_email", None) or "").strip()
+    if not name and not email:
+        return prefs
+    data = prefs.model_dump()
+    cand = dict(data.get("candidate") or {})
+    if name:
+        cand["name"] = name
+    if email:
+        cand["email"] = email
+    data["candidate"] = cand
+    return Preferences.model_validate(data)
+
+
 def load_preferences(path: Optional[Path | str] = None) -> Preferences:
     """Load preferences from YAML. Returns a default-populated `Preferences`
     if the file is missing (useful for tests and first-run setup)."""
@@ -121,5 +143,6 @@ __all__ = [
     "SourceConfig",
     "ScraperThrottle",
     "load_preferences",
+    "merge_preferences_candidate",
     "DEFAULT_PATH",
 ]

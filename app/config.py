@@ -31,6 +31,15 @@ class Settings(BaseModel):
     dashboard_base_url: str = _strip(os.getenv("DASHBOARD_BASE_URL")) or "http://127.0.0.1:8000"
 
     outputs_dir: str = _strip(os.getenv("OUTPUTS_DIR")) or str(_REPO_ROOT / "outputs")
+
+    # Session cookie signing (set in production). Default is dev-only.
+    session_secret: str = _strip(os.getenv("SESSION_SECRET")) or "dev-session-secret-change-me"
+
+    # Anonymous / CLI default workspace user (built-in repo `data/`).
+    default_user_id: int = int(_strip(os.getenv("DEFAULT_USER_ID")) or "1")
+
+    # Scheduled daily_run uses this account unless overridden on the CLI.
+    daily_run_user_id: int = int(_strip(os.getenv("DAILY_RUN_USER_ID")) or "1")
     playwright_profiles_dir: str = (
         _strip(os.getenv("PLAYWRIGHT_PROFILES_DIR")) or str(_REPO_ROOT / ".playwright")
     )

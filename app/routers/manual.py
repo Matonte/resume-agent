@@ -30,13 +30,15 @@ import logging
 from datetime import date, datetime
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from app.jobs.preferences import load_preferences
+from app.config import settings
+from app.jobs.preferences import load_preferences, merge_preferences_candidate
 from app.jobs.tailor import tailor_job_from_raw
 from app.scrapers.base import RawJob
+from app.storage.accounts import get_profile, get_user_by_id
 from app.storage.db import DailyRun, get_conn, insert_daily_run, upsert_job
 
 logger = logging.getLogger(__name__)
@@ -74,14 +76,23 @@ class ManualTailorResponse(BaseModel):
     warning: Optional[str] = None
 
 
-def _ensure_run_row(run_id: str) -> None:
+def _session_uid(request: Request) -> int:
+    return int(request.session.get("user_id", settings.default_user_id))
+
+
+def _ensure_run_row(run_id: str, user_id: int) -> None:
     """Idempotently insert a DailyRun row so manual jobs satisfy the
     foreign-key expectation that every job belongs to a run."""
     with get_conn() as conn:
         try:
             insert_daily_run(
                 conn,
-                DailyRun(id=run_id, ran_at=datetime.utcnow(), status="manual"),
+                DailyRun(
+                    id=run_id,
+                    ran_at=datetime.utcnow(),
+                    status="manual",
+                    user_id=user_id,
+                ),
             )
         except Exception:
             # Row already exists from the nightly run; that's fine.
@@ -117,7 +128,7 @@ def manual_tailor_get() -> JSONResponse:
 
 
 @router.post("/api/manual-tailor", response_model=ManualTailorResponse)
-def manual_tailor(payload: ManualTailorRequest) -> Any:
+def manual_tailor(request: Request, payload: ManualTailorRequest) -> Any:
     if not payload.has_jd_source():
         raise HTTPException(
             status_code=400,
@@ -168,14 +179,27 @@ def manual_tailor(payload: ManualTailorRequest) -> Any:
         apply_url=(payload.apply_url or effective_url),
     )
 
+    uid = _session_uid(request)
     prefs = load_preferences()
+    with get_conn() as conn:
+        u = get_user_by_id(conn, uid)
+        prof = None
+        if u and u.active_profile_id:
+            prof = get_profile(conn, u.active_profile_id)
+    prefs = merge_preferences_candidate(prefs, prof)
+
     run_date = date.today()
-    run_id = DailyRun.make_id(run_date)
-    _ensure_run_row(run_id)
+    run_id = DailyRun.make_id(run_date, user_id=uid)
+    _ensure_run_row(run_id, uid)
 
     try:
         tailored = tailor_job_from_raw(
-            raw, prefs, run_id=run_id, run_date=run_date, use_llm=payload.use_llm,
+            raw,
+            prefs,
+            run_id=run_id,
+            run_date=run_date,
+            user_id=uid,
+            use_llm=payload.use_llm,
         )
     except Exception as exc:  # noqa: BLE001
         logger.exception("manual tailor failed")

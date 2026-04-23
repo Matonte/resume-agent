@@ -526,3 +526,50 @@ code {
   font-family: var(--font-mono);
   color: var(--accent);
 }
+
+.panel-heading {
+  margin: 0 0 12px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+}
+
+.auth-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 800px) {
+  .auth-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.profile-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+
+.profile-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  margin-bottom: 8px;
+  background: var(--panel-raised);
+}
+
+.profile-name {
+  font-weight: 600;
+}
+
+.profile-slug {
+  font-size: 0.72rem;
+  color: var(--fg-muted);
+}

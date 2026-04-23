@@ -44,6 +44,7 @@ def tailor_job_from_raw(
     *,
     run_id: str,
     run_date: date,
+    user_id: int = 1,
     use_llm: bool = True,
 ) -> TailoredJob:
     """Run the full tailor pipeline on a single `RawJob`.
@@ -64,8 +65,8 @@ def tailor_job_from_raw(
         use_llm=use_llm,
     )
 
-    job_id = JobRecord.make_id(raw.source, raw.url)
-    job_dir = artifact_dir_for(job_id, run_date)
+    job_id = JobRecord.make_id(raw.source, raw.url, user_id=user_id)
+    job_dir = artifact_dir_for(job_id, run_date, user_id=user_id)
 
     resume_bytes = generate_tailored_resume_bytes(
         archetype_id=archetype_id,
@@ -132,6 +133,7 @@ def tailor_job_from_raw(
         screening=screening,
         status=STATUS_NEW,
         daily_run_id=run_id,
+        user_id=user_id,
     )
     return TailoredJob(record=record, artifact_dir=str(job_dir))
 

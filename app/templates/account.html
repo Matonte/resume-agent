@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Resume Agent — Account</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/jobs_today.css" />
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <h1>Account <span class="wordmark-tag" aria-hidden="true">Workspace</span></h1>
+        <p class="subtitle">
+          Register to get your own resume data pack (copied from the bundled templates).
+          The default workspace (no login) uses the repository <code>data/</code> folder.
+        </p>
+      </div>
+      <div class="links">
+        <a href="/jobs/today">Queue</a>
+        <a href="/tailor">Intake</a>
+        <a href="/">Review</a>
+        <a href="/docs" target="_blank">Docs</a>
+      </div>
+    </header>
+
+    <section class="panel" id="session-panel">
+      <h2 class="panel-heading">Signed in</h2>
+      <p id="me-line" class="muted">Loading…</p>
+      <button type="button" id="logout-btn" class="secondary" hidden>Log out</button>
+    </section>
+
+    <section class="panel" id="auth-forms">
+      <div class="auth-grid">
+        <div>
+          <h2 class="panel-heading">Register</h2>
+          <form id="register-form" class="form-grid">
+            <label><span>Email</span><input name="email" type="email" required autocomplete="email" /></label>
+            <label><span>Display name</span><input name="display_name" type="text" autocomplete="name" /></label>
+            <label><span>Password (8+ chars)</span><input name="password" type="password" required minlength="8" autocomplete="new-password" /></label>
+            <button type="submit">Create account</button>
+          </form>
+        </div>
+        <div>
+          <h2 class="panel-heading">Log in</h2>
+          <form id="login-form" class="form-grid">
+            <label><span>Email</span><input name="email" type="email" required autocomplete="username" /></label>
+            <label><span>Password</span><input name="password" type="password" required autocomplete="current-password" /></label>
+            <button type="submit">Log in</button>
+          </form>
+        </div>
+      </div>
+      <p id="auth-status" class="status" hidden></p>
+    </section>
+
+    <section class="panel" id="profiles-panel" hidden>
+      <h2 class="panel-heading">Resume profiles</h2>
+      <p class="muted">Switch which candidate JSON pack tailoring uses (truth model, stories, answer bank).</p>
+      <ul id="profile-list" class="profile-list"></ul>
+      <form id="new-profile-form" class="form-grid" style="margin-top:1rem;">
+        <label><span>New profile name</span><input name="name" type="text" placeholder="e.g. Staff eng emphasis" required /></label>
+        <button type="submit">Add profile</button>
+      </form>
+      <p id="profile-status" class="status" hidden></p>
+    </section>
+  </main>
+  <script src="/static/account.js"></script>
+</body>
+</html>

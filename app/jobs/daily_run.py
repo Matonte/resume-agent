@@ -65,6 +65,15 @@ def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         action="store_true",
         help="Enable DEBUG logging.",
     )
+    p.add_argument(
+        "--user-id",
+        type=int,
+        default=None,
+        help=(
+            "Workspace user id for artifacts + DB scoping "
+            "(default: DAILY_RUN_USER_ID env or 1)."
+        ),
+    )
     return p.parse_args(argv)
 
 
@@ -105,6 +114,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         send_email=not args.no_email,
         use_llm=not args.no_llm,
         check_auth=check_auth,
+        user_id=args.user_id,
     )
 
     print(
