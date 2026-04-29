@@ -14,6 +14,7 @@ def test_health():
     assert data["status"] == "ok"
     assert data["loaded_files"]["truth_model_roles"] > 0
     assert "llm_configured" in data["loaded_files"]
+    assert "meeting_advisor_configured" in data["loaded_files"]
 
 
 def test_classify():
@@ -43,6 +44,8 @@ def test_full_draft_with_question():
     assert "fit" in data
     assert 0.0 <= data["fit"]["score"] <= 10.0
     assert data["fit"]["band"]
+    assert data.get("meeting_advice") is None
+    assert data.get("meeting_advisor_note") is None
 
 
 def test_full_draft_without_question_omits_answer():
@@ -66,6 +69,24 @@ def test_fit_score_endpoint():
     assert 0.0 <= data["score"] <= 10.0
     assert data["band"]
     assert data["reasons"]
+
+
+def test_full_draft_with_meeting_advisor_mocked(monkeypatch):
+    monkeypatch.setattr(
+        "app.routers.api.advise_for_job_context",
+        lambda **kwargs: {"advice": {"opening_move": "Ping"}},
+    )
+    res = client.post(
+        "/api/full-draft",
+        json={
+            "description": "Senior Backend Engineer, Payments Platform: transaction integrity.",
+            "meeting_advisor": True,
+            "company": "Acme",
+        },
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["meeting_advice"]["advice"]["opening_move"] == "Ping"
 
 
 def test_generate_resume_download():

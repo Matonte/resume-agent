@@ -45,5 +45,29 @@
     ],
     "chosen_archetype": "A_general_ai_platform",
     "reason": "Platform focus with AI-adjacent tooling makes the general AI/platform resume the best base."
+  },
+  {
+    "job_title": "Staff Software Engineer, Backend Platform",
+    "keywords": [
+      "staff engineer",
+      "technical leadership",
+      "mentorship",
+      "architecture review",
+      "backend platform"
+    ],
+    "chosen_archetype": "E_staff_backend",
+    "reason": "Staff-level scope and leadership cues route to the E primary-layout resume template."
+  },
+  {
+    "job_title": "Senior Backend Engineer, Core Product",
+    "keywords": [
+      "backend development",
+      "service ownership",
+      "API design",
+      "feature delivery",
+      "product engineering"
+    ],
+    "chosen_archetype": "E_core_backend",
+    "reason": "Core product backend and delivery language route to Layout E without staff/lead signals."
   }
 ]

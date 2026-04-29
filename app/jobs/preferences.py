@@ -66,10 +66,19 @@ class OutreachForJobConfig(BaseModel):
 
     Requires ``GOOGLE_CSE_*`` and/or ``BING_SEARCH_KEY``. ``MEETING_ADVISOR_URL``
     improves notes via the flask_sample advisor when set.
+
+    When ``posting_people`` is true, the job description (and optionally the
+    apply URL) is scanned for named people; each yields an extra name+company
+    search before enrichment.
     """
 
     enabled: bool = False
     max_search_hits: int = 8
+    posting_people: bool = True
+    fetch_apply_page: bool = True
+    max_posting_people: int = 5
+    max_followup_queries: int = 6
+    include_engineer_contacts: bool = False
 
 
 class Preferences(BaseModel):

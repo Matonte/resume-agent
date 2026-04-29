@@ -40,6 +40,9 @@ class FullDraftRequest(BaseModel):
     company: Optional[str] = None
     archetype_override: Optional[str] = None
     use_llm: bool = False
+    #: When True and ``MEETING_ADVISOR_URL`` is set, calls the advisor with JD context.
+    meeting_advisor: bool = False
+    advisor_subject_name: Optional[str] = None
 
 class FitScoreResponse(BaseModel):
     score: float = Field(ge=0.0, le=10.0)
@@ -51,6 +54,8 @@ class FullDraftResponse(BaseModel):
     resume: ResumeDraftResponse
     answer: Optional[AnswerResponse] = None
     fit: FitScoreResponse
+    meeting_advice: Optional[Dict[str, Any]] = None
+    meeting_advisor_note: Optional[str] = None
 
 class GenerateResumeRequest(BaseModel):
     description: str

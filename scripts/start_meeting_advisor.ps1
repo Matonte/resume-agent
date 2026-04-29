@@ -26,6 +26,6 @@ Set-Location $FlaskSampleRoot
 $venvPy = Join-Path $FlaskSampleRoot ".venv\Scripts\python.exe"
 $py = if (Test-Path $venvPy) { $venvPy } else { "python" }
 
-Write-Host "Meeting advisor → http://127.0.0.1:5003 (MEETING_ADVISOR_URL in resume-agent .env)"
+Write-Host "Default advisor URL is often http://127.0.0.1:5003 — set MEETING_ADVISOR_URL in resume-agent .env (e.g. http://127.0.0.1:8000 if mounted there)."
 Write-Host "Using: $py in $FlaskSampleRoot"
 & $py run_meeting_advisor.py

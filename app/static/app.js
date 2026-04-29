@@ -15,8 +15,11 @@
   const archetypeSelect = document.getElementById("archetype-select");
   const goBtn = document.getElementById("go");
   const downloadBtn = document.getElementById("download-btn");
+  const downloadAdvisorBtn = document.getElementById("download-advisor-btn");
   const useLlmEl = document.getElementById("use-llm");
   const llmStatusEl = document.getElementById("llm-status");
+  const meetingAdvisorEl = document.getElementById("meeting-advisor");
+  const advisorStatusEl = document.getElementById("advisor-status");
   const fitScoreEl = document.getElementById("fit-score");
   const fitBandEl = document.getElementById("fit-band");
   const fitFillEl = document.getElementById("fit-fill");
@@ -68,6 +71,75 @@
     });
   }
 
+  function escapeHtml(s) {
+    const d = document.createElement("div");
+    d.textContent = s == null ? "" : String(s);
+    return d.innerHTML;
+  }
+
+  function renderMeetingAdviceHtml(raw) {
+    if (!raw || typeof raw !== "object") return "";
+    const a = raw.advice && typeof raw.advice === "object" ? raw.advice : {};
+    const chunks = [];
+    if (a.opening_move) {
+      chunks.push(`<p><strong>Opening move</strong><br>${escapeHtml(a.opening_move)}</p>`);
+    }
+    if (a.key_observations) {
+      chunks.push(`<p><strong>Observations</strong><br>${escapeHtml(a.key_observations)}</p>`);
+    }
+    const doList = Array.isArray(a.do) ? a.do : [];
+    if (doList.length) {
+      chunks.push(
+        `<p><strong>Do</strong></p><ul>${doList.map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ul>`,
+      );
+    }
+    const dontList = Array.isArray(a.dont) ? a.dont : [];
+    if (dontList.length) {
+      chunks.push(
+        `<p><strong>Don't</strong></p><ul>${dontList.map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ul>`,
+      );
+    }
+    const watch = Array.isArray(a.watchpoints) ? a.watchpoints : [];
+    if (watch.length) {
+      chunks.push(
+        `<p><strong>Watchpoints</strong></p><ul>${watch.map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ul>`,
+      );
+    }
+    if (a.escalation_plan) {
+      chunks.push(`<p><strong>If it goes sideways</strong><br>${escapeHtml(a.escalation_plan)}</p>`);
+    }
+    return chunks.length ? chunks.join("") : `<pre class="muted">${escapeHtml(JSON.stringify(raw, null, 2))}</pre>`;
+  }
+
+  function renderMeetingAdvice(data) {
+    const wrap = document.getElementById("resume-meeting-advisor");
+    const noteEl = document.getElementById("resume-meeting-advisor-note");
+    const bodyEl = document.getElementById("resume-meeting-advice-body");
+    if (!wrap || !noteEl || !bodyEl) return;
+
+    const note = data.meeting_advisor_note;
+    if (note) {
+      noteEl.textContent = note;
+      noteEl.hidden = false;
+    } else {
+      noteEl.textContent = "";
+      noteEl.hidden = true;
+    }
+
+    const raw = data.meeting_advice;
+    if (!raw) {
+      bodyEl.innerHTML = "";
+      if (note) {
+        wrap.classList.remove("hidden");
+      } else {
+        wrap.classList.add("hidden");
+      }
+      return;
+    }
+    wrap.classList.remove("hidden");
+    bodyEl.innerHTML = renderMeetingAdviceHtml(raw);
+  }
+
   function collectBody() {
     const fd = new FormData(form);
     return {
@@ -77,6 +149,9 @@
       company: (fd.get("company") || "").toString().trim() || null,
       archetype_override: (fd.get("archetype_override") || "").toString() || null,
       use_llm: !!useLlmEl.checked && !useLlmEl.disabled,
+      meeting_advisor: !!meetingAdvisorEl.checked && !meetingAdvisorEl.disabled,
+      advisor_subject_name:
+        (fd.get("advisor_subject_name") || "").toString().trim() || null,
     };
   }
 
@@ -90,6 +165,7 @@
 
     goBtn.disabled = true;
     downloadBtn.disabled = true;
+    downloadAdvisorBtn.disabled = true;
     statusEl.textContent = "Generating...";
 
     try {
@@ -106,6 +182,7 @@
       lastDraft = { body, data };
       render(data);
       downloadBtn.disabled = false;
+      downloadAdvisorBtn.disabled = !data.meeting_advice;
       statusEl.textContent = "Done.";
     } catch (err) {
       statusEl.textContent = `Error: ${err.message}`;
@@ -155,6 +232,39 @@
     }
   }
 
+  function _safeFilenamePart(s) {
+    return String(s || "job")
+      .replace(/[^A-Za-z0-9._-]+/g, "_")
+      .slice(0, 48);
+  }
+
+  function onDownloadAdvisor() {
+    if (!lastDraft?.data?.meeting_advice) return;
+    downloadAdvisorBtn.disabled = true;
+    statusEl.textContent = "Downloading advisor JSON…";
+    try {
+      const blob = new Blob([JSON.stringify(lastDraft.data.meeting_advice, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const co = _safeFilenamePart(lastDraft.body.company);
+      const tag = new Date().toISOString().slice(0, 10);
+      const fname = `meeting_advice_${co}_${tag}.json`;
+      a.download = fname;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      statusEl.textContent = `Downloaded ${fname}.`;
+    } catch (err) {
+      statusEl.textContent = `Download failed: ${err.message}`;
+    } finally {
+      downloadAdvisorBtn.disabled = false;
+    }
+  }
+
   function render(data) {
     resultsEl.classList.remove("hidden");
 
@@ -199,10 +309,34 @@
     } else {
       answerCard.classList.add("hidden");
     }
+
+    renderMeetingAdvice(data);
+  }
+
+  async function loadAdvisorStatus() {
+    try {
+      const res = await fetch("/api/health");
+      if (!res.ok) return;
+      const h = await res.json();
+      const ma = !!h?.loaded_files?.meeting_advisor_configured;
+      if (ma) {
+        meetingAdvisorEl.checked = true;
+        advisorStatusEl.textContent =
+          " — outreach / conversation prep (POSTs to MEETING_ADVISOR_URL).";
+      } else {
+        meetingAdvisorEl.checked = false;
+        meetingAdvisorEl.disabled = true;
+        advisorStatusEl.textContent = " — set MEETING_ADVISOR_URL in .env.";
+      }
+    } catch (err) {
+      advisorStatusEl.textContent = " — status unavailable.";
+    }
   }
 
   form.addEventListener("submit", onSubmit);
   downloadBtn.addEventListener("click", onDownload);
+  downloadAdvisorBtn.addEventListener("click", onDownloadAdvisor);
   loadArchetypes();
   loadLlmStatus();
+  loadAdvisorStatus();
 })();

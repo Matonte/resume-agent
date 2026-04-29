@@ -43,6 +43,11 @@ class Settings(BaseModel):
     playwright_profiles_dir: str = (
         _strip(os.getenv("PLAYWRIGHT_PROFILES_DIR")) or str(_REPO_ROOT / ".playwright")
     )
+    #: Playwright `channel` for `chromium.launch_persistent_context`: unset =
+    #: bundled Chromium for `.playwright/profile-*`. Set `msedge` to use the
+    #: installed Microsoft Edge; set `chrome` for Google Chrome. With
+    #: `*_PROFILE_DIR` overrides, defaults to `chrome` when unset (legacy).
+    playwright_channel: str = _strip(os.getenv("PLAYWRIGHT_CHANNEL"))
 
     # --- Job-site credentials (optional; used only by scripts/login_once.py) ---
     linkedin_email: str = _strip(os.getenv("LINKEDIN_EMAIL"))
@@ -56,10 +61,12 @@ class Settings(BaseModel):
     # When set, Playwright uses this path as `user_data_dir` for that site
     # instead of the default `.playwright/profile-<site>/` directory. Useful
     # when a site's login flow is too hostile to Playwright-driven Chromium
-    # and you need to reuse an existing browser session (e.g. your real
-    # Chrome user-data dir on Windows:
-    # %LOCALAPPDATA%\Google\Chrome\User Data). Requires the source browser
-    # to be *closed* before the agent runs.
+    # and you need to reuse an existing browser session, e.g.:
+    #   Chrome: %LOCALAPPDATA%\Google\Chrome\User Data
+    #   Edge:   %LOCALAPPDATA%\Microsoft\Edge\User Data
+    # Set PLAYWRIGHT_CHANNEL=msedge when using an Edge user-data dir, or
+    # PLAYWRIGHT_CHANNEL=chrome for Chrome. The source browser must be *closed*
+    # before the agent runs.
     wttj_profile_dir: str = _strip(os.getenv("WTTJ_PROFILE_DIR"))
     linkedin_profile_dir: str = _strip(os.getenv("LINKEDIN_PROFILE_DIR"))
     jobright_profile_dir: str = _strip(os.getenv("JOBRIGHT_PROFILE_DIR"))
@@ -78,8 +85,8 @@ class Settings(BaseModel):
         _strip(os.getenv("WHOISWHAT_ENRICH_CALLABLE")) or "enrich_contacts"
     )
 
-    # flask_sample `meeting_advisor` (WhoIsWhat K + WhoIsHoss + tactical JSON).
-    # Local dev: python run_meeting_advisor.py → http://127.0.0.1:5003
+    # meeting_advisor service (WhoIsWhat K + WhoIsHoss + tactical JSON).
+    # POST target: {meeting_advisor_url}/api/v1/advise (e.g. http://127.0.0.1:8000).
     meeting_advisor_url: str = _strip(os.getenv("MEETING_ADVISOR_URL"))
 
     def site_credentials(self, site: str) -> tuple[str, str]:

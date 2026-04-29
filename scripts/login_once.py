@@ -4,15 +4,20 @@ Usage:
     python scripts/login_once.py linkedin
     python scripts/login_once.py wttj
     python scripts/login_once.py jobright
+    python scripts/login_once.py linkedin --sso   # org account: SSO only, no password
 
 Opens a visible Playwright window pointed at the site's sign-in page and
-blocks until you press Enter in the terminal. Cookies persist under
-`settings.playwright_profiles_dir / profile-<site>/` so subsequent scraper
-runs skip auth entirely.
+blocks until you press Enter in the terminal. Session data persists under
+`.playwright/profile-<site>/` or your `LINKEDIN_PROFILE_DIR` / Edge user-data
+dir when configured.
 
-Run this once per site after pulling the repo (or after a site signs you
-out). No passwords are stored or read anywhere in the repo; the login
-happens entirely inside the browser.
+Many employers enforce SSO (Sign in with Microsoft / Google / Okta). Those
+flows are not supported by email/password pre-fill—use `--sso` (or
+`--no-autofill`) and complete SSO in the browser yourself, then press Enter.
+
+Run once per site after pulling the repo (or after a site signs you out).
+Credentials in `.env` are optional and only used to pre-fill classic
+username/password forms.
 """
 
 from __future__ import annotations
@@ -43,20 +48,37 @@ def main(argv: Optional[List[str]] = None) -> int:
         action="store_true",
         help="Don't pre-fill the form from .env even if credentials are set.",
     )
+    parser.add_argument(
+        "--sso",
+        action="store_true",
+        help=(
+            "Skip password pre-fill for SSO-only accounts: use Microsoft/Google/"
+            "Okta in the browser, then press Enter here when you're logged in."
+        ),
+    )
     args = parser.parse_args(argv)
 
+    skip_autofill = args.no_autofill or args.sso
     email, password = ("", "")
-    if not args.no_autofill:
+    if not skip_autofill:
         email, password = settings.site_credentials(args.site)
         if email or password:
             print(
                 f"[{args.site}] Pre-filling credentials from .env "
-                f"({args.site.upper()}_EMAIL / {args.site.upper()}_PASSWORD)."
+                f"({args.site.upper()}_EMAIL / {args.site.upper()}_PASSWORD).\n"
+                f"    If this account is SSO-only, cancel and re-run with --sso."
             )
         else:
             print(
                 f"[{args.site}] No credentials in .env; you'll type them into the browser."
             )
+    elif args.sso:
+        print(
+            f"[{args.site}] SSO mode: click your org's 'Sign in with …' button "
+            "and finish in the browser. .env passwords are not used."
+        )
+    else:
+        print(f"[{args.site}] Auto-fill disabled; sign in manually in the browser.")
 
     try:
         launch_for_login(args.site, email=email, password=password)

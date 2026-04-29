@@ -76,7 +76,15 @@ scraper:
 # Optional: after each tailored job, web-search for recruiter / hiring-manager
 # contacts at the company and write outreach_contacts.json when found.
 # Requires GOOGLE_CSE_API_KEY + GOOGLE_CSE_CX and/or BING_SEARCH_KEY in .env.
-# MEETING_ADVISOR_URL adds flask_sample tactical advice when that service is up.
+# MEETING_ADVISOR_URL (e.g. http://127.0.0.1:8000) adds tactical advice when that service is up.
+# posting_people: LLM extracts named contacts from jd_full (+ optional apply URL);
+# each gets an extra "Name"+company web search (meeting advisor still runs on hits).
 outreach_for_job:
   enabled: true
   max_search_hits: 8
+  posting_people: true
+  fetch_apply_page: true
+  max_posting_people: 5
+  max_followup_queries: 6
+  # When true, engineer-tagged contacts are also written to outreach_contacts.json.
+  include_engineer_contacts: false

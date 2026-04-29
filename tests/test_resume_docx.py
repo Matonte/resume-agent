@@ -17,6 +17,9 @@ ARCHETYPES = [
     "B_fintech_transaction_systems",
     "C_data_streaming_systems",
     "D_distributed_systems",
+    "E_staff_backend",
+    "E_core_backend",
+    "E_resume",
 ]
 
 JD_FINTECH = (

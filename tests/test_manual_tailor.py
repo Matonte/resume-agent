@@ -43,7 +43,11 @@ def test_manual_tailor_alias_path_redirects_to_ui(client):
     assert resp.headers.get("location") == "/tailor"
 
 
-def test_manual_tailor_description_only_path(client):
+def test_manual_tailor_description_only_path(client, monkeypatch):
+    monkeypatch.setattr(
+        "app.routers.manual.advise_for_job_context",
+        lambda **kwargs: None,
+    )
     resp = client.post(
         "/api/manual-tailor",
         json={
@@ -64,6 +68,7 @@ def test_manual_tailor_description_only_path(client):
     assert data["fit_score"] is not None
     assert data["artifact_urls"]["resume"].endswith("resume.docx")
     assert data["artifact_urls"]["cover_letter"].endswith("cover_letter.docx")
+    assert data.get("meeting_advice") is None
 
     # Persisted to DB?
     with get_conn() as conn:
@@ -80,6 +85,26 @@ def test_manual_tailor_description_only_path(client):
     dl = client.get(data["artifact_urls"]["resume"])
     assert dl.status_code == 200
     assert len(dl.content) > 0
+
+
+def test_manual_tailor_meeting_advice_in_response(client, monkeypatch):
+    monkeypatch.setattr(
+        "app.routers.manual.advise_for_job_context",
+        lambda **kwargs: {"advice": {"opening_move": "Hello", "do": ["Be brief"]}},
+    )
+    resp = client.post(
+        "/api/manual-tailor",
+        json={
+            "description": _JD_TEXT,
+            "company": "Stripe",
+            "title": "Senior Backend Engineer",
+            "use_llm": False,
+            "meeting_advisor": True,
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["meeting_advice"] and data["meeting_advice"]["advice"]["opening_move"] == "Hello"
 
 
 def test_manual_tailor_rejects_empty_body(client):
@@ -100,6 +125,11 @@ def test_manual_tailor_url_path_uses_fetcher(monkeypatch, client):
     """When only a URL is provided, we should call jd_fetcher and pull
     the description / title / company from the parsed page."""
     from app.scrapers.base import RawJob
+
+    monkeypatch.setattr(
+        "app.routers.manual.advise_for_job_context",
+        lambda **kwargs: None,
+    )
 
     def fake_fetch(url, *, timeout=15.0):
         return jd_fetcher.FetchedJob(

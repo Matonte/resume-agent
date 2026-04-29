@@ -6,7 +6,7 @@
   <title>Resume Agent — Review</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
@@ -14,7 +14,7 @@
     <header class="topbar">
       <div>
         <h1>Single-job review <span class="wordmark-tag" aria-hidden="true">Local</span></h1>
-        <p class="subtitle">Paste a job description, classify it, and draft a tailored resume + answer locally.</p>
+        <p class="subtitle">Paste a job description, classify it, draft a tailored resume and optional answer, and (when enabled) show meeting-advisor tactics in the resume panel.</p>
       </div>
       <div class="links">
         <a href="/account">Account</a>
@@ -64,9 +64,26 @@
           </span>
         </label>
 
+        <label class="checkbox-row" id="advisor-row">
+          <input type="checkbox" name="meeting_advisor" id="meeting-advisor" />
+          <span>
+            <strong>Meeting advisor</strong>
+            <span class="muted" id="advisor-status"> — checking…</span>
+          </span>
+        </label>
+        <div class="row two">
+          <label>
+            <span>Advisor subject (optional)</span>
+            <input name="advisor_subject_name" type="text" placeholder="Contact name, or leave blank for generic hiring-team prep" />
+          </label>
+        </div>
+
         <div class="actions">
           <button type="submit" id="go">Generate draft</button>
           <button type="button" id="download-btn" disabled>Download tailored .docx</button>
+          <button type="button" id="download-advisor-btn" disabled class="secondary">
+            Download meeting_advice.json
+          </button>
           <span id="status" class="status"></span>
         </div>
       </form>
@@ -101,6 +118,11 @@
           <ul id="bullets"></ul>
           <h3>Notes</h3>
           <ul id="notes" class="muted"></ul>
+          <div id="resume-meeting-advisor" class="resume-meeting-advisor hidden">
+            <h3>Meeting advisor</h3>
+            <p id="resume-meeting-advisor-note" class="muted"></p>
+            <div id="resume-meeting-advice-body" class="meeting-advice-body"></div>
+          </div>
         </article>
 
         <article id="answer-card">

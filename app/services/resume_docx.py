@@ -179,6 +179,9 @@ def _resolve_template_path(archetype_id: str) -> Path:
         "B_fintech_transaction_systems": "MM_Resume_4_9_26_B",
         "C_data_streaming_systems": "MM_Resume_4_9_26_C",
         "D_distributed_systems": "MM_Resume_4_9_26_D",
+        "E_staff_backend": "MM_Resume_4_9_26_E",
+        "E_core_backend": "MM_Resume_4_9_26_E",
+        "E_resume": "MM_Resume_4_9_26_E",
     }
     prefix = prefix_map.get(archetype_id)
     if prefix:

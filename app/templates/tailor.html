@@ -6,7 +6,7 @@
   <title>Resume Agent — Manual intake</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/static/styles.css" />
   <link rel="stylesheet" href="/static/jobs_today.css" />
   <link rel="stylesheet" href="/static/tailor.css" />
@@ -74,7 +74,16 @@
             <input id="use-llm" name="use_llm" type="checkbox" checked />
             <span>Use LLM polish (slower; uses your OpenAI key)</span>
           </label>
+          <label class="checkbox">
+            <input id="meeting-advisor" name="meeting_advisor" type="checkbox" checked />
+            <span>Meeting advisor <span id="advisor-hint" class="hint-inline">(needs MEETING_ADVISOR_URL)</span></span>
+          </label>
           <button id="submit-btn" type="submit" class="primary">Generate tailored package</button>
+        </div>
+
+        <div class="field">
+          <label for="advisor-subject">Advisor subject (optional)</label>
+          <input id="advisor-subject" name="advisor_subject" type="text" placeholder="Contact name, or leave blank for hiring-team prep" />
         </div>
       </form>
 
@@ -97,6 +106,12 @@
         <a id="dl-screening" class="action" href="#" target="_blank" rel="noopener">screening.json</a>
         <a id="dl-metadata" class="action" href="#" target="_blank" rel="noopener">metadata.json</a>
         <a id="open-dashboard" class="action" href="/jobs/today">Open today's dashboard</a>
+      </div>
+
+      <div id="meeting-advice-wrap" class="meeting-advice-wrap" hidden>
+        <h3 class="result-advice-heading">Meeting advisor</h3>
+        <p id="meeting-advisor-note" class="hint"></p>
+        <div id="meeting-advice-body" class="meeting-advice-body"></div>
       </div>
     </section>
   </main>

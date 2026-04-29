@@ -13,6 +13,7 @@ from app.jobs.preferences import OutreachForJobConfig, Preferences
 from app.scrapers.base import RawJob
 from app.storage.db import JobRecord
 from app.services.outreach_enrich import OutreachContactDossier, OutreachStakeholderNotes
+from app.services.outreach_posting_people import PostingPerson
 from app.services.outreach_search import CombinationSearchResult, WebSearchHit
 
 
@@ -94,6 +95,82 @@ def test_outreach_writes_when_recruiter_found(tmp_path: Path, monkeypatch: pytes
     meta2 = json.loads((tmp_path / "metadata.json").read_text(encoding="utf-8"))
     assert meta2["outreach"]["outreach_written"] is True
     assert meta2["outreach"]["outreach_contact_count"] == 1
+
+
+def test_outreach_supplementary_hits_first_in_enrich_batch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Name+company search hits are merged before broad SERP hits for enrich."""
+    s = settings.model_copy(
+        update={"google_cse_api_key": "k", "google_cse_cx": "cx", "bing_search_key": ""}
+    )
+    monkeypatch.setattr("app.jobs.job_outreach_notes.settings", s)
+
+    main_hit = WebSearchHit(
+        title="Generic careers",
+        url="https://example.com/careers",
+        snippet="We are hiring",
+        engine="g",
+        query="broad",
+    )
+    named_hit = WebSearchHit(
+        title="Pat Lee — Talent at Acme",
+        url="https://linkedin.com/in/pat",
+        snippet="Recruiting engineers",
+        engine="g",
+        query="named",
+    )
+    monkeypatch.setattr(
+        "app.jobs.job_outreach_notes.run_combination_search",
+        lambda desc: CombinationSearchResult(queries=["broad"], hits=[main_hit], errors=[]),
+    )
+    monkeypatch.setattr(
+        "app.jobs.job_outreach_notes.run_supplementary_outreach_searches",
+        lambda queries, results_per_query=8: CombinationSearchResult(
+            queries=list(queries),
+            hits=[named_hit],
+            errors=[],
+        ),
+    )
+    monkeypatch.setattr(
+        "app.jobs.job_outreach_notes.extract_people_from_posting_corpus",
+        lambda *a, **k: [PostingPerson(name="Pat Lee")],
+    )
+    monkeypatch.setattr(
+        "app.jobs.job_outreach_notes.merge_posting_corpus",
+        lambda raw, fetch_apply_page=True: "noop",
+    )
+
+    seen: list = []
+
+    def enrich(hits, desc, use_llm=True):
+        seen.extend(hits)
+        return [
+            OutreachContactDossier(
+                title=named_hit.title,
+                url=named_hit.url,
+                snippet=named_hit.snippet,
+                inferred_primary_role="recruiter",
+            )
+        ]
+
+    monkeypatch.setattr("app.jobs.job_outreach_notes.enrich_outreach_hits", enrich)
+
+    meta = {"job_id": "abc", "company": "Acme Pay"}
+    (tmp_path / "metadata.json").write_text(json.dumps(meta), encoding="utf-8")
+
+    prefs = Preferences(
+        outreach_for_job=OutreachForJobConfig(
+            enabled=True,
+            max_search_hits=8,
+            posting_people=True,
+            max_followup_queries=6,
+        )
+    )
+    maybe_write_job_outreach_notes(_raw(), tmp_path, prefs, use_llm=False)
+    assert seen and seen[0].url == named_hit.url
+    assert (tmp_path / "outreach_contacts.json").is_file()
 
 
 def test_outreach_no_file_when_only_engineer(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

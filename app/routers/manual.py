@@ -16,8 +16,12 @@ Endpoints:
             "location":    Optional[str],
             "apply_url":   Optional[str],   # defaults to url
             "use_llm":     bool = True,
+            "meeting_advisor": bool = True,
+            "advisor_subject_name": Optional[str],
         }
-        Returns the tailored `JobRecord` plus artifact download URLs.
+        Returns the tailored `JobRecord` plus artifact download URLs, and when
+        ``meeting_advisor`` is true and ``MEETING_ADVISOR_URL`` is set, includes
+        ``meeting_advice`` (advisor JSON) or ``meeting_advisor_note``.
 
     GET /tailor
         Serves the HTML form (see templates/tailor.html). The template
@@ -40,6 +44,7 @@ from app.jobs.job_outreach_notes import maybe_write_job_outreach_notes
 from app.jobs.preferences import load_preferences, merge_preferences_candidate
 from app.jobs.tailor import tailor_job_from_raw
 from app.scrapers.base import RawJob
+from app.services.outreach_enrich import advise_for_job_context
 from app.storage.accounts import get_profile, get_user_by_id
 from app.storage.db import DailyRun, get_conn, insert_daily_run, upsert_job
 
@@ -58,6 +63,9 @@ class ManualTailorRequest(BaseModel):
     location: Optional[str] = None
     apply_url: Optional[str] = None
     use_llm: bool = True
+    #: Call ``MEETING_ADVISOR_URL`` /api/v1/advise with this JD (in addition to outreach when configured).
+    meeting_advisor: bool = True
+    advisor_subject_name: Optional[str] = None
 
     def has_jd_source(self) -> bool:
         return bool((self.description and self.description.strip()) or (self.url and self.url.strip()))
@@ -76,6 +84,8 @@ class ManualTailorResponse(BaseModel):
     artifact_urls: Dict[str, str] = Field(default_factory=dict)
     dashboard_url: str
     warning: Optional[str] = None
+    meeting_advice: Optional[Dict[str, Any]] = None
+    meeting_advisor_note: Optional[str] = None
 
 
 def _session_uid(request: Request) -> int:
@@ -125,6 +135,8 @@ def manual_tailor_get() -> JSONResponse:
                 "company": None,
                 "title": None,
                 "use_llm": True,
+                "meeting_advisor": True,
+                "advisor_subject_name": None,
             },
         }
     )
@@ -221,6 +233,22 @@ def manual_tailor(request: Request, payload: ManualTailorRequest) -> Any:
     except Exception:  # noqa: BLE001
         logger.exception("manual tailor: outreach notes failed")
 
+    meeting_advice = None
+    meeting_note: Optional[str] = None
+    if payload.meeting_advisor:
+        if not settings.meeting_advisor_configured:
+            meeting_note = "MEETING_ADVISOR_URL is not set."
+        else:
+            meeting_advice = advise_for_job_context(
+                subject_name=(payload.advisor_subject_name or "").strip(),
+                company=tailored.record.company or "",
+                title=tailored.record.title or "",
+                job_description_excerpt=description,
+                listing_url=tailored.record.url or effective_url,
+            )
+            if meeting_advice is None and not meeting_note:
+                meeting_note = "Meeting advisor returned no response (check server logs)."
+
     # The warning the user sees is the fetch-side note (if any) - we did still
     # tailor something, so we shouldn't 4xx, but we want them to know we
     # couldn't fully parse the URL.
@@ -239,6 +267,8 @@ def manual_tailor(request: Request, payload: ManualTailorRequest) -> Any:
         artifact_urls=_artifact_urls(tailored.record.id),
         dashboard_url=f"/jobs/today",
         warning=warning,
+        meeting_advice=meeting_advice,
+        meeting_advisor_note=meeting_note,
     )
 
 

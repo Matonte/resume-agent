@@ -11,6 +11,69 @@ const submitBtn = document.getElementById("submit-btn");
 const statusEl = document.getElementById("status");
 const resultPanel = document.getElementById("result-panel");
 
+function escapeHtml(s) {
+  const d = document.createElement("div");
+  d.textContent = s == null ? "" : String(s);
+  return d.innerHTML;
+}
+
+function renderMeetingAdviceBlock(raw) {
+  if (!raw || typeof raw !== "object") return "";
+  const a = raw.advice && typeof raw.advice === "object" ? raw.advice : {};
+  const chunks = [];
+  if (a.opening_move) {
+    chunks.push(`<p><strong>Opening move</strong><br>${escapeHtml(a.opening_move)}</p>`);
+  }
+  if (a.key_observations) {
+    chunks.push(`<p><strong>Observations</strong><br>${escapeHtml(a.key_observations)}</p>`);
+  }
+  const doList = Array.isArray(a.do) ? a.do : [];
+  if (doList.length) {
+    chunks.push(
+      `<p><strong>Do</strong></p><ul>${doList.map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ul>`,
+    );
+  }
+  const dontList = Array.isArray(a.dont) ? a.dont : [];
+  if (dontList.length) {
+    chunks.push(
+      `<p><strong>Don't</strong></p><ul>${dontList.map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ul>`,
+    );
+  }
+  const watch = Array.isArray(a.watchpoints) ? a.watchpoints : [];
+  if (watch.length) {
+    chunks.push(
+      `<p><strong>Watchpoints</strong></p><ul>${watch.map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ul>`,
+    );
+  }
+  if (a.escalation_plan) {
+    chunks.push(`<p><strong>If it goes sideways</strong><br>${escapeHtml(a.escalation_plan)}</p>`);
+  }
+  return chunks.length ? chunks.join("") : `<pre class="muted">${escapeHtml(JSON.stringify(raw, null, 2))}</pre>`;
+}
+
+async function loadMeetingAdvisorHint() {
+  const hint = document.getElementById("advisor-hint");
+  const cb = document.getElementById("meeting-advisor");
+  if (!hint || !cb) return;
+  try {
+    const res = await fetch("/api/health");
+    if (!res.ok) return;
+    const h = await res.json();
+    const ok = !!h?.loaded_files?.meeting_advisor_configured;
+    if (ok) {
+      hint.textContent = "(MEETING_ADVISOR_URL set)";
+      cb.checked = true;
+      cb.disabled = false;
+    } else {
+      hint.textContent = "(set MEETING_ADVISOR_URL to enable)";
+      cb.checked = false;
+      cb.disabled = true;
+    }
+  } catch (_) {
+    hint.textContent = "(status unavailable)";
+  }
+}
+
 function setStatus(text, variant = "info") {
   if (!text) {
     statusEl.hidden = true;
@@ -38,6 +101,28 @@ function showResult(data) {
   document.getElementById("dl-screening").href = urls.screening || "#";
   document.getElementById("dl-metadata").href = urls.metadata || "#";
   document.getElementById("open-dashboard").href = data.dashboard_url || "/jobs/today";
+
+  const wrap = document.getElementById("meeting-advice-wrap");
+  const noteEl = document.getElementById("meeting-advisor-note");
+  const bodyEl = document.getElementById("meeting-advice-body");
+  if (wrap && noteEl && bodyEl) {
+    const note = data.meeting_advisor_note;
+    const adv = data.meeting_advice;
+    if (note) {
+      noteEl.textContent = note;
+      noteEl.hidden = false;
+    } else {
+      noteEl.textContent = "";
+      noteEl.hidden = true;
+    }
+    if (adv) {
+      wrap.hidden = false;
+      bodyEl.innerHTML = renderMeetingAdviceBlock(adv);
+    } else {
+      wrap.hidden = !note;
+      bodyEl.innerHTML = note ? "" : "";
+    }
+  }
 }
 
 form.addEventListener("submit", async (evt) => {
@@ -67,6 +152,8 @@ form.addEventListener("submit", async (evt) => {
     title: document.getElementById("title").value.trim() || null,
     location: document.getElementById("location").value.trim() || null,
     use_llm: document.getElementById("use-llm").checked,
+    meeting_advisor: document.getElementById("meeting-advisor").checked,
+    advisor_subject_name: document.getElementById("advisor-subject").value.trim() || null,
   };
 
   try {
@@ -94,3 +181,5 @@ form.addEventListener("submit", async (evt) => {
     submitBtn.textContent = "Generate tailored package";
   }
 });
+
+loadMeetingAdvisorHint();

@@ -215,6 +215,46 @@ def _bing_search(client: httpx.Client, query: str, count: int) -> List[WebSearch
     return out
 
 
+def _search_providers_configured() -> tuple[bool, bool]:
+    has_google = bool((settings.google_cse_api_key or "").strip()) and bool(
+        (settings.google_cse_cx or "").strip()
+    )
+    has_bing = bool((settings.bing_search_key or "").strip())
+    return has_google, has_bing
+
+
+def _run_queries_through_engines(
+    client: httpx.Client,
+    queries: Sequence[str],
+    *,
+    results_per_query: int,
+    has_google: bool,
+    has_bing: bool,
+) -> tuple[List[WebSearchHit], List[str]]:
+    n = min(max(1, results_per_query), 10)
+    all_hits: List[WebSearchHit] = []
+    errors: List[str] = []
+    for q in queries:
+        q = " ".join((q or "").split())
+        if not q:
+            continue
+        if has_google:
+            try:
+                all_hits.extend(_google_cse_search(client, q, n))
+            except Exception as exc:  # pragma: no cover - network
+                msg = f"google: {q[:80]!r}: {exc!s}"
+                logger.warning("%s", msg)
+                errors.append(msg)
+        if has_bing:
+            try:
+                all_hits.extend(_bing_search(client, q, n))
+            except Exception as exc:  # pragma: no cover - network
+                msg = f"bing: {q[:80]!r}: {exc!s}"
+                logger.warning("%s", msg)
+                errors.append(msg)
+    return all_hits, errors
+
+
 def run_combination_search(
     description: str,
     explicit_tags: Optional[Sequence[str]] = None,
@@ -228,11 +268,7 @@ def run_combination_search(
     if not queries:
         return CombinationSearchResult(queries=[], hits=[], errors=[])
 
-    n = min(max(1, cfg.results_per_query), 10)
-    has_google = bool((settings.google_cse_api_key or "").strip()) and bool(
-        (settings.google_cse_cx or "").strip()
-    )
-    has_bing = bool((settings.bing_search_key or "").strip())
+    has_google, has_bing = _search_providers_configured()
     if not has_google and not has_bing:
         return CombinationSearchResult(
             queries=queries,
@@ -240,28 +276,58 @@ def run_combination_search(
             errors=["No search API keys configured (set GOOGLE_CSE_API_KEY + GOOGLE_CSE_CX and/or BING_SEARCH_KEY)."],
         )
 
-    all_hits: List[WebSearchHit] = []
-    errors: List[str] = []
-
     with httpx.Client() as client:
-        for q in queries:
-            if has_google:
-                try:
-                    all_hits.extend(_google_cse_search(client, q, n))
-                except Exception as exc:  # pragma: no cover - network
-                    msg = f"google: {q[:80]!r}: {exc!s}"
-                    logger.warning("%s", msg)
-                    errors.append(msg)
-            if has_bing:
-                try:
-                    all_hits.extend(_bing_search(client, q, n))
-                except Exception as exc:  # pragma: no cover - network
-                    msg = f"bing: {q[:80]!r}: {exc!s}"
-                    logger.warning("%s", msg)
-                    errors.append(msg)
+        all_hits, errors = _run_queries_through_engines(
+            client,
+            queries,
+            results_per_query=cfg.results_per_query,
+            has_google=has_google,
+            has_bing=has_bing,
+        )
 
     merged = merge_dedupe_hits(all_hits)
     return CombinationSearchResult(queries=queries, hits=merged, errors=errors)
+
+
+def run_supplementary_outreach_searches(
+    queries: Sequence[str],
+    *,
+    results_per_query: int = 8,
+) -> CombinationSearchResult:
+    """Run Google + Bing for explicit queries only (no YAML query plan)."""
+    ordered: List[str] = []
+    seen: set[str] = set()
+    for q in queries:
+        qn = " ".join((q or "").split())
+        if not qn:
+            continue
+        low = qn.lower()
+        if low in seen:
+            continue
+        seen.add(low)
+        ordered.append(qn)
+    if not ordered:
+        return CombinationSearchResult(queries=[], hits=[], errors=[])
+
+    has_google, has_bing = _search_providers_configured()
+    if not has_google and not has_bing:
+        return CombinationSearchResult(
+            queries=ordered,
+            hits=[],
+            errors=["No search API keys configured (set GOOGLE_CSE_API_KEY + GOOGLE_CSE_CX and/or BING_SEARCH_KEY)."],
+        )
+
+    with httpx.Client() as client:
+        all_hits, errors = _run_queries_through_engines(
+            client,
+            ordered,
+            results_per_query=results_per_query,
+            has_google=has_google,
+            has_bing=has_bing,
+        )
+
+    merged = merge_dedupe_hits(all_hits)
+    return CombinationSearchResult(queries=ordered, hits=merged, errors=errors)
 
 
 __all__ = [
@@ -273,4 +339,5 @@ __all__ = [
     "CombinationSearchResult",
     "merge_dedupe_hits",
     "run_combination_search",
+    "run_supplementary_outreach_searches",
 ]

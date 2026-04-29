@@ -1,8 +1,8 @@
 """Enrich web-search contacts with recruiter / hiring-manager angles.
 
-1. **flask_sample meeting_advisor** (recommended): set ``MEETING_ADVISOR_URL`` (e.g.
-   ``http://127.0.0.1:5003`` when running ``python run_meeting_advisor.py`` from
-   ``flask_sample``). Each contact triggers ``POST .../api/v1/advise`` with the
+1. **meeting_advisor** HTTP service: set ``MEETING_ADVISOR_URL`` to its base
+   (e.g. ``http://127.0.0.1:8000`` or standalone flask_sample on ``:5003``).
+   Each contact triggers ``POST {MEETING_ADVISOR_URL}/api/v1/advise`` with the
    search title/snippet as notes; the response merges WhoIsWhat (K) + WhoIsHoss
    (HOSS) plus ``advice`` JSON (opening_move, do/don't, watchpoints, …) into
    the dossier. The full HTTP JSON is stored under ``whoiswhat_raw["meeting_advisor"]``
@@ -127,6 +127,33 @@ def _call_meeting_advisor(
     except Exception:
         logger.exception("meeting_advisor request to %s failed", url)
         return None
+
+
+def advise_for_job_context(
+    *,
+    subject_name: str,
+    company: str,
+    title: str,
+    job_description_excerpt: str,
+    listing_url: str = "",
+) -> Optional[Dict[str, Any]]:
+    """POST to meeting_advisor for manual intake / review UI (synthetic hit)."""
+    if not _meeting_advisor_base_url():
+        return None
+    c = (company or "").strip() or "Unknown company"
+    t = (title or "").strip() or "Role"
+    sn = (subject_name or "").strip() or f"{c} hiring team"
+    excerpt = (job_description_excerpt or "").strip()[:4000]
+    url = (listing_url or "").strip() or "resume-agent://intake"
+    hit = WebSearchHit(
+        title=f"{sn} — {c}",
+        url=url,
+        snippet=excerpt,
+        engine="intake",
+        query="",
+    )
+    desc = f"{c}\n{t}\n{excerpt[:2500]}"
+    return _call_meeting_advisor(hit, desc, "unknown")
 
 
 def _attach_meeting_advisor_raw(
@@ -500,4 +527,5 @@ __all__ = [
     "OutreachStakeholderNotes",
     "OutreachContactDossier",
     "enrich_outreach_hits",
+    "advise_for_job_context",
 ]

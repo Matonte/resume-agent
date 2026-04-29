@@ -29,6 +29,9 @@ ARCHETYPE_LABEL_PREFERENCE: Dict[str, Dict[str, str]] = {
         "C_data_streaming_systems": "data_streaming",
         "D_distributed_systems": "backend_distributed",
         "A_general_ai_platform": "backend_distributed",
+        "E_staff_backend": "backend_distributed",
+        "E_core_backend": "backend_distributed",
+        "E_resume": "backend_distributed",
     },
     "why_this_company": {
         # Default nudge: infra-heavy archetypes -> infrastructure template.
@@ -36,6 +39,9 @@ ARCHETYPE_LABEL_PREFERENCE: Dict[str, Dict[str, str]] = {
         "C_data_streaming_systems": "infrastructure_company",
         "B_fintech_transaction_systems": "product_company",
         "A_general_ai_platform": "product_company",
+        "E_staff_backend": "product_company",
+        "E_core_backend": "product_company",
+        "E_resume": "product_company",
     },
 }
 

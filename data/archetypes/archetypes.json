@@ -119,5 +119,92 @@
       "resilience under load"
     ],
     "source_resume": "MM_Resume_4_9_26_D (1) (1).docx"
+  },
+  "E_staff_backend": {
+    "id": "E_staff_backend",
+    "name": "Resume E — Staff / Lead Backend",
+    "best_for": [
+      "staff backend engineer",
+      "technical leadership",
+      "mentorship",
+      "architecture review",
+      "cross-team delivery",
+      "senior plus scope"
+    ],
+    "headline_title": "Senior Backend Engineer",
+    "scale_phrase": "high-throughput distributed systems",
+    "domain_phrase": "financial and enterprise environments",
+    "specializations": [
+      "backend architecture",
+      "event-driven systems",
+      "cloud-native infrastructure",
+      "technical leadership"
+    ],
+    "focus_traits": [
+      "reliability",
+      "scalability",
+      "production performance",
+      "team technical direction"
+    ],
+    "summary_focus": [
+      "distributed systems",
+      "mentoring engineers",
+      "architecture alignment",
+      "delivery ownership"
+    ],
+    "source_resume": "MM_Resume_4_9_26_E.docx"
+  },
+  "E_core_backend": {
+    "id": "E_core_backend",
+    "name": "Resume E — Core Product Backend",
+    "best_for": [
+      "backend services",
+      "API ownership",
+      "feature delivery",
+      "product engineering",
+      "general senior backend"
+    ],
+    "headline_title": "Senior Backend Engineer",
+    "scale_phrase": "high-throughput distributed systems",
+    "domain_phrase": "financial and enterprise environments",
+    "specializations": [
+      "backend architecture",
+      "service design and APIs",
+      "cloud-native delivery"
+    ],
+    "focus_traits": [
+      "reliability",
+      "scalability",
+      "shipping in production"
+    ],
+    "summary_focus": [
+      "backend services",
+      "API quality",
+      "cross-functional delivery",
+      "production ownership"
+    ],
+    "source_resume": "MM_Resume_4_9_26_E.docx"
+  },
+  "E_resume": {
+    "id": "E_resume",
+    "name": "Resume E (template only — pick manually)",
+    "best_for": [
+      "manual archetype override for mm resume layout e docx"
+    ],
+    "headline_title": "Senior Backend Engineer",
+    "scale_phrase": "high-throughput distributed systems",
+    "domain_phrase": "financial and enterprise environments",
+    "specializations": [
+      "backend architecture",
+      "event-driven systems",
+      "cloud-native infrastructure"
+    ],
+    "focus_traits": [
+      "reliability",
+      "scalability",
+      "production performance"
+    ],
+    "summary_focus": [],
+    "source_resume": "MM_Resume_4_9_26_E.docx"
   }
 }

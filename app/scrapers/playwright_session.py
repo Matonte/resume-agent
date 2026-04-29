@@ -124,11 +124,15 @@ def sync_context(
     """Context manager that yields `(playwright, persistent_context)` for
     `site`. Closes everything on exit.
 
-    When `prefer_real_chrome=True` (the default), we try to launch the
-    user's installed Google Chrome via Playwright's `chrome` channel,
-    which is dramatically less likely to be fingerprinted as automation
-    than the bundled Chromium build. If Chrome isn't installed we fall
-    back to Chromium transparently.
+    When `prefer_real_chrome=True` (the default), behavior depends on
+    :envvar:`PLAYWRIGHT_CHANNEL` and profile overrides:
+    - External profile (`LINKEDIN_PROFILE_DIR`, etc.): launches that browser
+      via Playwright's channel API. Default channel is ``chrome``; set
+      ``PLAYWRIGHT_CHANNEL=msedge`` to use installed Microsoft Edge with an
+      Edge user-data directory.
+    - Default ``.playwright/profile-*`` dirs use bundled Chromium unless
+      ``PLAYWRIGHT_CHANNEL`` is set (e.g. ``msedge`` to drive Edge for those
+      profiles too, when supported on your OS).
 
     Scraper modules import Playwright lazily via this function so the rest
     of the app (tests, CI, local dev without Playwright installed) keeps
@@ -152,11 +156,9 @@ def sync_context(
             args=list(_STEALTH_ARGS),
             ignore_default_args=["--enable-automation"],
         )
-        # When reusing an external browser profile (e.g. real Chrome), let
-        # the native UA through so the session cookie isn't invalidated by
-        # a UA mismatch. Also pin the profile directory to "Default" so
-        # Chrome doesn't pop its profile picker, which can silently block
-        # navigation inside a headless launch.
+        # When reusing an external browser profile (Chrome or Edge user-data
+        # dir), let the native UA through. Pin "Default" so the browser does
+        # not pop a profile picker (which can block navigation headless).
         if using_external:
             launch_kwargs["args"] = list(launch_kwargs["args"]) + [
                 "--profile-directory=Default",
@@ -164,30 +166,32 @@ def sync_context(
         else:
             launch_kwargs["user_agent"] = _STEALTH_UA
 
-        context = None
-        # Only use real Chrome when the user has pointed us at an external
-        # browser profile (e.g. their actual Chrome user-data dir). For our
-        # own Playwright-managed profiles under .playwright/, stick with
-        # bundled Chromium: real Chrome rejects those profiles with exit
-        # code 21 (profile-version mismatch) and the failed launch leaves
-        # stale lock files that corrupt the next attempt.
+        resolved_channel: Optional[str] = None
         if using_external:
-            try:
+            resolved_channel = settings.playwright_channel or "chrome"
+        elif settings.playwright_channel:
+            resolved_channel = settings.playwright_channel
+
+        try:
+            if resolved_channel:
                 context = pw.chromium.launch_persistent_context(
-                    channel="chrome",
+                    channel=resolved_channel,
                     **launch_kwargs,
                 )
-            except Exception as exc:
+            else:
+                context = pw.chromium.launch_persistent_context(**launch_kwargs)
+        except Exception as exc:
+            if using_external:
                 raise RuntimeError(
                     f"Site '{site}' is configured with an external profile "
-                    f"override but real Google Chrome could not be launched: "
-                    f"{exc}. Install Google Chrome, or clear the "
-                    f"{site.upper()}_PROFILE_DIR env var to fall back to the "
-                    f"default Playwright profile."
+                    f"override but the browser could not be launched "
+                    f"(channel={resolved_channel!r}): {exc}. Install Google "
+                    "Chrome or Microsoft Edge, set PLAYWRIGHT_CHANNEL to "
+                    "`chrome` or `msedge` to match your user-data directory, "
+                    f"or clear {site.upper()}_PROFILE_DIR to use the default "
+                    "`.playwright/` profile (bundled Chromium)."
                 ) from exc
-
-        if context is None:
-            context = pw.chromium.launch_persistent_context(**launch_kwargs)
+            raise
 
         try:
             try:
@@ -309,9 +313,10 @@ def launch_for_login(site: str, *, email: str = "", password: str = "") -> None:
     user presses Enter in the terminal.
 
     If `email` / `password` are provided, we pre-fill those fields so you
-    only have to click the Sign-in button (plus any 2FA / captcha). Leave
-    them blank to type everything manually. Either way, session cookies
-    are persisted to `.playwright/profile-<site>/` for later headless runs.
+    only have to click the Sign-in button (plus any 2FA / captcha). SSO-only
+    accounts should call with empty credentials and use --sso from login_once.
+    Leave them blank to type everything manually. Session cookies are
+    persisted under the configured profile dir for later headless runs.
     """
     if site not in LOGIN_URLS:
         raise ValueError(f"no login URL registered for site '{site}'")

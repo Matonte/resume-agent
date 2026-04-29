@@ -1,31 +1,46 @@
-/* Resume Agent — enterprise control surface
- * Dark industrial base, clipped geometry, muted toxic teal accents.
- * Readable density; sterile internal-tools tone (not cyberpunk play). */
+/* Resume Agent — "The Abyss" depth + Stranger Things phosphor CRT
+ * VT323 terminal body, Orbitron HUD titles, scanlines + vignette. */
+
+@keyframes crt-flicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  94% {
+    opacity: 0.98;
+  }
+  96% {
+    opacity: 1;
+  }
+}
 
 :root {
-  --bg-void: #070809;
-  --bg-base: #0c0e12;
-  --bg-grid: #12151a;
-  --panel: #111418;
-  --panel-raised: #161a20;
-  --panel-hover: #1a1f27;
-  --fg: #d8dde4;
-  --fg-muted: #7d8694;
-  --fg-dim: #5c6570;
-  --border: #252a32;
-  --border-strong: #323944;
-  /* Muted toxic / industrial teal — accent, not neon */
-  --accent: #3d9a8a;
-  --accent-dim: #2d6b60;
-  --accent-glow: rgba(61, 154, 138, 0.22);
-  --accent-2: #4a8f9e;
-  --warn: #9a8a4a;
-  --danger: #9a4a52;
-  --danger-muted: #5c2a30;
-  --ok: #3d8a6a;
+  /* Deep water / lab black-green */
+  --bg-void: #020605;
+  --bg-base: #050e0c;
+  --bg-grid: #081816;
+  --panel: #061210;
+  --panel-raised: #0a1a16;
+  --panel-hover: #0d221c;
+  /* Phosphor green-cyan (ST terminal / deep-sea readout) */
+  --fg: #a8ffd9;
+  --fg-muted: #62c9a8;
+  --fg-dim: #3d8f75;
+  --border: #145a4a;
+  --border-strong: #1e8a72;
+  --accent: #4fffc4;
+  --accent-dim: #24b894;
+  --accent-glow: rgba(79, 255, 196, 0.45);
+  --accent-2: #5ce0d0;
+  --warn: #ffd060;
+  --danger: #ff6b7a;
+  --danger-muted: #8c3540;
+  --ok: #4fffc4;
   --chamfer: 12px;
-  --font-sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", "Cascadia Code", ui-monospace, monospace;
+  --font-display: "Orbitron", "Rajdhani", system-ui, sans-serif;
+  /* Chunky CRT terminal — Stranger Things / 80s lab monochrome */
+  --font-sans: "VT323", "Rajdhani", monospace;
+  --font-mono: "Share Tech Mono", "VT323", ui-monospace, monospace;
   --radius-inner: 2px;
   --transition: 0.14s ease;
 }
@@ -42,12 +57,20 @@ body {
   background: var(--bg-base);
   color: var(--fg);
   font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 1.45;
-  -webkit-font-smoothing: antialiased;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.35;
+  /* Bitmap-style edges: no gray blending (VT323 / terminal readout) */
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: grayscale;
+  text-shadow:
+    0 0 2px rgba(79, 255, 196, 0.12),
+    1px 0 0 rgba(168, 255, 217, 0.07),
+    -1px 0 0 rgba(168, 255, 217, 0.07);
+  animation: crt-flicker 5s infinite;
 }
 
-/* Subtle grid + depth — retro-futurist, not decorative */
+/* Scanlines, abyss color bleed, CRT vignette */
 body::before {
   content: "";
   position: fixed;
@@ -55,20 +78,22 @@ body::before {
   pointer-events: none;
   z-index: 0;
   background:
-    radial-gradient(ellipse 120% 80% at 50% -20%, rgba(61, 154, 138, 0.06), transparent 50%),
+    radial-gradient(ellipse 90% 75% at 50% 50%, transparent 32%, rgba(1, 6, 8, 0.82) 100%),
+    radial-gradient(ellipse 120% 85% at 50% 115%, rgba(15, 90, 80, 0.22), transparent 58%),
+    radial-gradient(ellipse 70% 55% at 15% -5%, rgba(25, 90, 110, 0.14), transparent 45%),
     repeating-linear-gradient(
       0deg,
       transparent,
-      transparent 31px,
-      rgba(255, 255, 255, 0.018) 31px,
-      rgba(255, 255, 255, 0.018) 32px
+      transparent 2px,
+      rgba(0, 0, 0, 0.175) 2px,
+      rgba(0, 0, 0, 0.175) 3px
     ),
     repeating-linear-gradient(
       90deg,
       transparent,
-      transparent 31px,
-      rgba(255, 255, 255, 0.018) 31px,
-      rgba(255, 255, 255, 0.018) 32px
+      transparent 100px,
+      rgba(79, 255, 196, 0.02) 100px,
+      rgba(79, 255, 196, 0.02) 101px
     );
 }
 
@@ -92,27 +117,33 @@ body > * {
   margin-bottom: 22px;
   padding-bottom: 18px;
   border-bottom: 1px solid var(--border);
-  box-shadow: 0 1px 0 0 rgba(61, 154, 138, 0.08);
+  box-shadow: 0 1px 0 0 var(--accent-glow);
 }
 
 .topbar h1 {
   margin: 0;
-  font-size: 1.15rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: var(--fg);
+  color: var(--accent);
+  text-shadow:
+    0 0 8px var(--accent-glow),
+    0 0 24px rgba(79, 255, 196, 0.35);
 }
 
 .topbar .wordmark-tag {
   display: inline-block;
   margin-left: 10px;
   padding: 2px 8px;
-  font-size: 0.65rem;
-  font-weight: 500;
-  letter-spacing: 0.14em;
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--accent-dim);
+  text-shadow: 0 0 10px var(--accent-glow);
   border: 1px solid var(--border-strong);
   background: var(--panel);
   vertical-align: middle;
@@ -130,9 +161,11 @@ body > * {
   margin: 8px 0 0;
   max-width: 52em;
   color: var(--fg-muted);
-  font-size: 0.82rem;
-  line-height: 1.5;
+  font-size: 1.05rem;
+  line-height: 1.35;
   font-weight: 400;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 6px rgba(79, 255, 196, 0.18);
 }
 
 .links {
@@ -180,8 +213,9 @@ body > * {
     0 var(--chamfer)
   );
   box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.03),
-    0 8px 32px rgba(0, 0, 0, 0.35);
+    inset 0 0 40px rgba(79, 255, 196, 0.03),
+    inset 0 1px 0 0 rgba(79, 255, 196, 0.08),
+    0 8px 32px rgba(0, 0, 0, 0.5);
 }
 
 .panel::before {
@@ -217,9 +251,9 @@ label {
   display: flex;
   flex-direction: column;
   gap: 7px;
-  font-size: 0.72rem;
-  font-weight: 500;
-  letter-spacing: 0.08em;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.11em;
   text-transform: uppercase;
   color: var(--fg-dim);
 }
@@ -236,8 +270,9 @@ select {
   border: 1px solid var(--border);
   border-radius: var(--radius-inner);
   padding: 10px 12px;
-  font-size: 0.92rem;
+  font-size: 0.95rem;
   font-family: inherit;
+  font-weight: 500;
   outline: none;
   transition: border-color var(--transition), box-shadow var(--transition);
 }
@@ -262,10 +297,10 @@ button {
   color: var(--bg-base);
   border: 1px solid var(--accent);
   padding: 10px 18px;
-  font-family: var(--font-sans);
+  font-family: var(--font-display);
   font-weight: 600;
-  font-size: 0.78rem;
-  letter-spacing: 0.1em;
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   cursor: pointer;
   clip-path: polygon(
@@ -300,7 +335,7 @@ button.secondary {
 }
 
 button.secondary:hover {
-  background: rgba(61, 154, 138, 0.08);
+  background: rgba(79, 255, 196, 0.08);
   border-color: var(--accent-dim);
 }
 
@@ -311,7 +346,7 @@ button.secondary:hover {
 }
 
 #download-btn:hover {
-  background: rgba(61, 154, 138, 0.1);
+  background: rgba(79, 255, 196, 0.1);
 }
 
 .actions {
@@ -355,9 +390,10 @@ button.secondary:hover {
 }
 
 article h2 {
-  font-size: 0.72rem;
+  font-family: var(--font-display);
+  font-size: 0.68rem;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.18em;
   color: var(--fg-dim);
   margin: 0 0 10px;
   font-weight: 600;
@@ -390,6 +426,16 @@ article h3 {
   padding: 18px 22px;
   margin-bottom: 18px;
   border-left: 3px solid var(--accent-dim);
+}
+
+.fit-card > h2:first-child {
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+  margin: 0 0 10px;
 }
 
 .fit-row {
@@ -509,12 +555,52 @@ li {
   font-size: 0.65rem;
   padding: 2px 8px;
   border-radius: var(--radius-inner);
-  background: rgba(61, 154, 138, 0.12);
+  background: rgba(79, 255, 196, 0.1);
   color: var(--accent);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   font-family: var(--font-mono);
   border: 1px solid var(--accent-dim);
+}
+
+.meeting-advice-body {
+  margin-top: 10px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--fg);
+}
+
+.meeting-advice-body p {
+  margin: 0 0 12px;
+}
+
+.meeting-advice-body ul {
+  margin: 6px 0 10px 1.1rem;
+  padding: 0;
+}
+
+.meeting-advice-body li {
+  margin-bottom: 4px;
+}
+
+.meeting-advice-body strong {
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.resume-meeting-advisor {
+  margin-top: 1rem;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.resume-meeting-advisor h3 {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+  color: var(--fg-muted);
 }
 
 code {
@@ -529,9 +615,10 @@ code {
 
 .panel-heading {
   margin: 0 0 12px;
-  font-size: 0.72rem;
+  font-family: var(--font-display);
+  font-size: 0.68rem;
   font-weight: 600;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--fg-dim);
 }
@@ -567,6 +654,7 @@ code {
 
 .profile-name {
   font-weight: 600;
+  letter-spacing: 0.04em;
 }
 
 .profile-slug {

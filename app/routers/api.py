@@ -32,7 +32,12 @@ from app.services.data_loader import (
 )
 from app.services.fit_score import compute_fit_score
 from app.services.llm import is_available as llm_is_available
-from app.services.outreach_enrich import OutreachContactDossier, enrich_outreach_hits
+from app.config import settings
+from app.services.outreach_enrich import (
+    OutreachContactDossier,
+    advise_for_job_context,
+    enrich_outreach_hits,
+)
 from app.services.outreach_search import WebSearchHit
 from app.services.resume_docx import generate_tailored_resume_bytes
 from app.services.resume_tailor import generate_resume_draft
@@ -65,6 +70,7 @@ def health():
             "classification_examples": len(load_classification_examples()),
             "rewrite_examples": len(load_rewrite_examples()),
             "llm_configured": llm_is_available(),
+            "meeting_advisor_configured": settings.meeting_advisor_configured,
         },
     )
 
@@ -136,11 +142,28 @@ def full_draft(req: FullDraftRequest):
 
     fit = _fit_to_response(compute_fit_score(req.description))
 
+    meeting_advice = None
+    meeting_note: str | None = None
+    if req.meeting_advisor:
+        if not settings.meeting_advisor_configured:
+            meeting_note = "MEETING_ADVISOR_URL is not set."
+        else:
+            meeting_advice = advise_for_job_context(
+                subject_name=(req.advisor_subject_name or "").strip(),
+                company=(req.company or "").strip(),
+                title=(req.title or "").strip(),
+                job_description_excerpt=req.description,
+            )
+            if meeting_advice is None:
+                meeting_note = "Meeting advisor returned no response (check server logs)."
+
     return FullDraftResponse(
         classification=classification,
         resume=resume,
         answer=answer_payload,
         fit=fit,
+        meeting_advice=meeting_advice,
+        meeting_advisor_note=meeting_note,
     )
 
 

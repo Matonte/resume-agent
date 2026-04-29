@@ -47,6 +47,22 @@ KEYWORD_HINTS: Dict[str, List[str]] = {
         "llm", "ai", "agents", "automation", "developer tools",
         "platform", "tooling",
     ],
+    "E_staff_backend": [
+        "staff engineer", "staff software", "technical lead", "tech lead",
+        "technical leadership", "mentorship", "mentor engineers",
+        "architecture review", "cross-functional", "cross functional",
+        "engineering manager", "principal engineer",
+    ],
+    "E_core_backend": [
+        "core services",
+        "backend development",
+        "service ownership",
+        "api design",
+        "product engineering",
+        "feature delivery",
+        "roadmap execution",
+        "shipping features",
+    ],
 }
 
 # Relative weight per signal source.
