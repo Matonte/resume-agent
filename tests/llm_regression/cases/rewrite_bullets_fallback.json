@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "id": "rewrite_bullets_fallback",
+  "description": "Malformed LLM payload falls back to source bullets.",
+  "handler": "rewrite_bullets",
+  "kwargs": {
+    "source_bullets": [
+      "Shipped a payments ledger service handling idempotent writes under contention."
+    ],
+    "job_description": "Senior Backend Engineer — build reliable distributed systems for our fintech platform."
+  },
+  "llm_mock_return": {},
+  "expect": {
+    "final_bullets": [
+      "Shipped a payments ledger service handling idempotent writes under contention."
+    ]
+  }
+}

@@ -92,6 +92,43 @@ def test_generate_resume_requires_description():
     assert res.status_code == 400
 
 
+def test_outreach_enrich_requires_fields():
+    res = client.post("/api/outreach/enrich", json={"company_description": "x", "hits": []})
+    assert res.status_code == 400
+    res = client.post(
+        "/api/outreach/enrich",
+        json={
+            "company_description": "   ",
+            "hits": [{"title": "t", "url": "https://x.com"}],
+        },
+    )
+    assert res.status_code == 400
+
+
+def test_outreach_enrich_returns_dossiers():
+    res = client.post(
+        "/api/outreach/enrich",
+        json={
+            "company_description": "Fintech backend NYC",
+            "hits": [
+                {
+                    "title": "Recruiter",
+                    "url": "https://linkedin.com/in/x",
+                    "snippet": "Hiring engineers",
+                    "query": "q",
+                    "engine": "google",
+                }
+            ],
+            "use_llm": False,
+        },
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert len(data) == 1
+    assert data[0]["url"] == "https://linkedin.com/in/x"
+    assert "recruiter" in data[0]
+
+
 def test_root_serves_html():
     res = client.get("/")
     assert res.status_code == 200

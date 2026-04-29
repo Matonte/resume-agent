@@ -37,6 +37,29 @@
           .join('')
       : '<em class="screening-empty">No screening questions extracted.</em>';
 
+    const outreach = detail.outreach || null;
+    const contacts = detail.outreach_contacts || [];
+    let outreachBlock = '';
+    if (outreach && outreach.contact_count) {
+      const roles = (outreach.roles || []).join(', ');
+      const lines = contacts.length
+        ? contacts
+            .slice(0, 3)
+            .map((c) => {
+              const op = (c.combined_opening || '').slice(0, 160);
+              return `<li><strong>${escape(c.title || '')}</strong> — ${escape(op)}</li>`;
+            })
+            .join('')
+        : '';
+      outreachBlock = `
+      <div class="job-outreach">
+        <strong>Recruiter / HM outreach</strong>
+        <p class="outreach-meta">${escape(String(outreach.contact_count))} contact(s)${roles ? ' · ' + escape(roles) : ''}</p>
+        <p><a href="${artifactHref(job.id, 'outreach_contacts.json')}">outreach_contacts.json</a></p>
+        ${lines ? `<ul class="outreach-list">${lines}</ul>` : ''}
+      </div>`;
+    }
+
     const status = job.status || 'new';
     const applyHref = job.apply_url || job.url;
     const listingHref = job.url;
@@ -63,6 +86,11 @@
         <span>${escape(job.location || '-')}</span>
         <span>${escape(job.salary_raw || '')}</span>
         <span>status: <strong>${escape(status)}</strong></span>
+        ${
+          job.outreach && job.outreach.contact_count
+            ? `<span class="pill outreach-pill">${escape(String(job.outreach.contact_count))} outreach</span>`
+            : ''
+        }
       </div>
       <div class="job-actions">
         <a href="${escape(applyHref)}" target="_blank" rel="noopener">Open apply link</a>
@@ -83,6 +111,7 @@
         <strong>Screening drafts</strong>
         <div>${screeningHtml}</div>
       </div>
+      ${outreachBlock}
       <details>
         <summary>Full JD</summary>
         <div class="jd-preview">${escape(jd).slice(0, 4000)}</div>

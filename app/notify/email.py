@@ -15,6 +15,7 @@ from email.message import EmailMessage
 from typing import Iterable, List, Optional
 
 from app.config import settings
+from app.jobs.job_outreach_notes import outreach_badge_for_job
 from app.storage.db import JobRecord
 
 logger = logging.getLogger(__name__)
@@ -31,6 +32,22 @@ def _job_url(job: JobRecord) -> str:
 
 def _fmt_fit(score: Optional[float]) -> str:
     return f"{score:.1f}/10" if isinstance(score, (int, float)) else "-"
+
+
+def _outreach_cell(job: JobRecord) -> str:
+    badge = outreach_badge_for_job(job)
+    if not badge or not badge.get("contact_count"):
+        return "—"
+    n = int(badge["contact_count"])
+    roles = badge.get("roles") or []
+    hint = ", ".join(str(r) for r in roles[:3]) if roles else ""
+    label = f"{n} contact{'s' if n != 1 else ''}"
+    if hint:
+        label += f" ({html.escape(hint)})"
+    return (
+        f"<a href='{html.escape(_job_url(job))}' style='text-decoration:none;"
+        f"color:#0d47a1;'>{label}</a>"
+    )
 
 
 def _posting_href(job: JobRecord) -> str:
@@ -50,11 +67,12 @@ def render_digest_html(jobs: Iterable[JobRecord], for_date: date) -> str:
             f"<td style='padding:6px 10px;'>{html.escape(j.location or '-')}</td>"
             f"<td style='padding:6px 10px;'>{html.escape(j.source)}</td>"
             f"<td style='padding:6px 10px;'>{_fmt_fit(j.fit_score)}</td>"
+            f"<td style='padding:6px 10px;'>{_outreach_cell(j)}</td>"
             f"<td style='padding:6px 10px;'><a href='{html.escape(_posting_href(j))}'>post</a></td>"
             "</tr>"
         )
     table_body = "\n".join(rows) or (
-        "<tr><td colspan='6' style='padding:10px;text-align:center;color:#666;'>"
+        "<tr><td colspan='7' style='padding:10px;text-align:center;color:#666;'>"
         "No jobs surfaced today.</td></tr>"
     )
     dashboard_url = settings.dashboard_base_url.rstrip("/") + "/jobs/today"
@@ -71,6 +89,7 @@ Open the <a href='{html.escape(dashboard_url)}'>dashboard</a> to approve or skip
       <th style='padding:6px 10px;'>Location</th>
       <th style='padding:6px 10px;'>Source</th>
       <th style='padding:6px 10px;'>Fit</th>
+      <th style='padding:6px 10px;'>Outreach</th>
       <th style='padding:6px 10px;'>Link</th>
     </tr>
   </thead>
@@ -87,10 +106,14 @@ def render_digest_text(jobs: Iterable[JobRecord], for_date: date) -> str:
     jobs = list(jobs)
     lines = [f"Daily job digest - {for_date.isoformat()} ({len(jobs)} job(s))", ""]
     for j in jobs:
-        lines.append(
+        line = (
             f"- [{_fmt_fit(j.fit_score)}] {j.title} at {j.company} "
             f"({j.source}, {j.location or '-'})\n  {_posting_href(j)}"
         )
+        badge = outreach_badge_for_job(j)
+        if badge and badge.get("contact_count"):
+            line += f"\n  outreach: {badge['contact_count']} recruiter/HM contact(s)"
+        lines.append(line)
     if not jobs:
         lines.append("  (no jobs today)")
     lines += ["", f"Open dashboard: {settings.dashboard_base_url.rstrip('/')}/jobs/today"]

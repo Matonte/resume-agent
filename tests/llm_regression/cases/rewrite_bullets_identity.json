@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "id": "rewrite_bullets_identity",
+  "description": "Model returns same bullets; guardrails accept; output unchanged.",
+  "handler": "rewrite_bullets",
+  "kwargs": {
+    "source_bullets": [
+      "Built a Java ingestion pipeline processing 2M events per day into HBase.",
+      "Owned on-call for the trading risk service and cut incident MTTR by clarifying runbooks."
+    ],
+    "job_description": "Staff Engineer — high-throughput Java services, operational excellence, HBase."
+  },
+  "llm_mock_return": {
+    "bullets": [
+      "Built a Java ingestion pipeline processing 2M events per day into HBase.",
+      "Owned on-call for the trading risk service and cut incident MTTR by clarifying runbooks."
+    ]
+  },
+  "expect": {
+    "final_bullets": [
+      "Built a Java ingestion pipeline processing 2M events per day into HBase.",
+      "Owned on-call for the trading risk service and cut incident MTTR by clarifying runbooks."
+    ]
+  }
+}

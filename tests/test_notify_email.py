@@ -45,6 +45,7 @@ def _sample_jobs() -> list[JobRecord]:
 
 def test_render_html_contains_links_and_rows() -> None:
     html = render_digest_html(_sample_jobs(), date(2026, 4, 22))
+    assert "Outreach" in html
     assert "Helix Fintech" in html
     assert "Ledgerline" in html
     assert "8.7/10" in html

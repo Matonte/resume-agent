@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "id": "rewrite_summary_fallback",
+  "description": "Bad JSON from model returns deterministic summary.",
+  "handler": "rewrite_summary",
+  "kwargs": {
+    "deterministic_summary": "Senior Backend Engineer with 11+ years building distributed systems in production.",
+    "job_description": "We hire senior engineers for our core API platform.",
+    "archetype_id": "D_distributed_systems"
+  },
+  "llm_mock_return": null,
+  "expect": {
+    "final_summary": "Senior Backend Engineer with 11+ years building distributed systems in production."
+  }
+}

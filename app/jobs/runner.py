@@ -14,8 +14,10 @@ Sequence:
        tailored resume + cover letter + screening answers, and persist
        everything into `outputs/<date>/job_<id>/`.
     6. Rank by fit_score, cut to `daily_cap`, mark the rest as `skipped`.
-    7. Upsert into SQLite.
-    8. Send the email digest (optional).
+    7. For kept jobs only, optionally run per-job outreach (recruiter/HM
+       search + notes) when `outreach_for_job.enabled` in preferences.
+    8. Upsert into SQLite.
+    9. Send the email digest (optional).
 
 The runner is fully testable with mocked scrapers and no network.
 """
@@ -25,9 +27,11 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
+from pathlib import Path
 from typing import List, Optional, Sequence
 
 from app.config import settings
+from app.jobs.job_outreach_notes import maybe_write_job_outreach_notes
 from app.jobs.preferences import Preferences, load_preferences, merge_preferences_candidate
 from app.jobs.tailor import tailor_job_from_raw
 from app.scrapers.base import RawJob, Scraper
@@ -132,7 +136,12 @@ def run_daily(
             try:
                 tailored.append(
                     _tailor_one(
-                        r, prefs, run_id, run_date, user_id=uid, use_llm=use_llm
+                        r,
+                        prefs,
+                        run_id,
+                        run_date,
+                        user_id=uid,
+                        use_llm=use_llm,
                     )
                 )
             except Exception as exc:  # noqa: BLE001
@@ -153,6 +162,22 @@ def run_daily(
             t for t in tailored if t.record.status != STATUS_FAILED
         ][: prefs.daily_cap]
         kept_ids = {t.record.id for t in kept}
+
+        if prefs.outreach_for_job.enabled:
+            for t in kept:
+                if t.record.status == STATUS_FAILED or not t.record.artifact_dir:
+                    continue
+                try:
+                    maybe_write_job_outreach_notes(
+                        t.raw,
+                        Path(t.record.artifact_dir),
+                        prefs,
+                        use_llm=use_llm,
+                    )
+                except Exception:  # noqa: BLE001
+                    logger.exception(
+                        "outreach_for_job failed for job %s", t.record.id
+                    )
 
         with get_conn() as conn:
             for t in tailored:
@@ -223,6 +248,7 @@ def run_daily(
 @dataclass
 class _ScoredTailoredJob:
     record: JobRecord
+    raw: RawJob
 
 
 def _default_scrapers(prefs: Preferences) -> List[Scraper]:
@@ -318,7 +344,7 @@ def _tailor_one(
         user_id=user_id,
         use_llm=use_llm,
     )
-    return _ScoredTailoredJob(record=tailored.record)
+    return _ScoredTailoredJob(record=tailored.record, raw=raw)
 
 
 def _failed_stub(raw: RawJob, run_id: str, *, user_id: int) -> _ScoredTailoredJob:
@@ -339,7 +365,8 @@ def _failed_stub(raw: RawJob, run_id: str, *, user_id: int) -> _ScoredTailoredJo
             status=STATUS_FAILED,
             daily_run_id=run_id,
             user_id=user_id,
-        )
+        ),
+        raw=raw,
     )
 
 

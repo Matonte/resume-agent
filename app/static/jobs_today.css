@@ -339,3 +339,28 @@
   border: 1px dashed var(--border);
   background: var(--bg-grid);
 }
+
+.job-outreach {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: var(--panel-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.job-outreach .outreach-meta {
+  font-size: 0.85rem;
+  color: var(--fg-dim);
+  margin: 6px 0 0 0;
+}
+
+.outreach-list {
+  margin: 10px 0 0 1.1rem;
+  font-size: 0.85rem;
+  color: var(--fg-muted);
+}
+
+.pill.outreach-pill {
+  background: rgba(13, 71, 161, 0.12);
+  color: #1565c0;
+}

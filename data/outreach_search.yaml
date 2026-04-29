@@ -1,0 +1,33 @@
+# Combination web search for company / people discovery.
+#
+# 1) open_queries — always run (after {description} substitution). Use for
+#    broad discovery on Google + Bing.
+# 2) keyword_rules — if any `match` phrase appears in the description
+#    (case-insensitive) OR matches an entry in `explicit_tags` you pass in
+#    code, the `extra_queries` are added (e.g. site: filters, niche directories).
+# 3) Cap with max_queries; results_per_query is per engine per query.
+
+open_queries:
+  - "{description} startup company"
+  - "{description} careers hiring"
+  - "{description} engineering team"
+
+keyword_rules:
+  - match: ["fintech", "banking", "payments"]
+    extra_queries:
+      - "{description} fintech company site:crunchbase.com"
+      - "{description} fintech site:linkedin.com/company"
+  - match: ["seed", "series a", "yc", "y combinator"]
+    extra_queries:
+      - "{description} funding startup site:crunchbase.com"
+      - "{description} site:news.ycombinator.com"
+  - match: ["devops", "platform", "infrastructure", "sre"]
+    extra_queries:
+      - "{description} platform engineering company site:linkedin.com/company"
+  - match: ["new york", "nyc", "jersey city", "brooklyn"]
+    extra_queries:
+      - "{description} technology startup New York"
+      - "site:builtinnyc.com {description}"
+
+max_queries: 20
+results_per_query: 8

@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "rewrite_cover_letter_identity",
+  "description": "Polished letter identical to deterministic input passes guardrails.",
+  "handler": "rewrite_cover_letter",
+  "kwargs": {
+    "deterministic_cover_letter": "Dear Acme hiring team,\n\nI am a senior backend engineer with experience in distributed systems.\n\nSincerely,\nJordan",
+    "job_description": "Senior Backend Engineer at Acme — distributed systems, reliability.",
+    "company": "Acme",
+    "title": "Senior Backend Engineer",
+    "archetype_id": "D_distributed_systems"
+  },
+  "llm_mock_return": {
+    "cover_letter": "Dear Acme hiring team,\n\nI am a senior backend engineer with experience in distributed systems.\n\nSincerely,\nJordan"
+  },
+  "expect": {
+    "final_cover_letter": "Dear Acme hiring team,\n\nI am a senior backend engineer with experience in distributed systems.\n\nSincerely,\nJordan"
+  }
+}

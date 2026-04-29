@@ -64,6 +64,24 @@ class Settings(BaseModel):
     linkedin_profile_dir: str = _strip(os.getenv("LINKEDIN_PROFILE_DIR"))
     jobright_profile_dir: str = _strip(os.getenv("JOBRIGHT_PROFILE_DIR"))
 
+    # --- Web search (outreach / combination search: Google CSE + Bing) ---
+    google_cse_api_key: str = _strip(os.getenv("GOOGLE_CSE_API_KEY"))
+    google_cse_cx: str = _strip(os.getenv("GOOGLE_CSE_CX"))
+    bing_search_key: str = _strip(os.getenv("BING_SEARCH_KEY"))
+
+    # --- Optional whoiswhat agent (sibling repo): recruiter / HM enrichment ---
+    # Add the repo root to Python's path, then set module + callable that accepts
+    # (items, company_description=...) — see app.services.outreach_enrich.
+    whoiswhat_agent_path: str = _strip(os.getenv("WHOISWHAT_AGENT_PATH"))
+    whoiswhat_enrich_module: str = _strip(os.getenv("WHOISWHAT_ENRICH_MODULE"))
+    whoiswhat_enrich_callable: str = (
+        _strip(os.getenv("WHOISWHAT_ENRICH_CALLABLE")) or "enrich_contacts"
+    )
+
+    # flask_sample `meeting_advisor` (WhoIsWhat K + WhoIsHoss + tactical JSON).
+    # Local dev: python run_meeting_advisor.py → http://127.0.0.1:5003
+    meeting_advisor_url: str = _strip(os.getenv("MEETING_ADVISOR_URL"))
+
     def site_credentials(self, site: str) -> tuple[str, str]:
         """Return `(email, password)` for a site. Empty strings when unset.
         Used only by the one-time login helper; scrapers rely on cookies."""
@@ -90,6 +108,16 @@ class Settings(BaseModel):
     @property
     def email_configured(self) -> bool:
         return bool(self.gmail_address and self.gmail_app_password)
+
+    @property
+    def web_search_configured(self) -> bool:
+        return bool(
+            (self.google_cse_api_key and self.google_cse_cx) or self.bing_search_key
+        )
+
+    @property
+    def meeting_advisor_configured(self) -> bool:
+        return bool(self.meeting_advisor_url)
 
     @property
     def outputs_path(self) -> Path:

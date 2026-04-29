@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date, datetime
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, HTTPException, Request
@@ -35,6 +36,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from app.config import settings
+from app.jobs.job_outreach_notes import maybe_write_job_outreach_notes
 from app.jobs.preferences import load_preferences, merge_preferences_candidate
 from app.jobs.tailor import tailor_job_from_raw
 from app.scrapers.base import RawJob
@@ -105,6 +107,7 @@ def _artifact_urls(job_id: str) -> Dict[str, str]:
         "cover_letter": f"/api/jobs/{job_id}/artifact?file=cover_letter.docx",
         "screening": f"/api/jobs/{job_id}/artifact?file=screening.json",
         "metadata": f"/api/jobs/{job_id}/artifact?file=metadata.json",
+        "outreach_contacts": f"/api/jobs/{job_id}/artifact?file=outreach_contacts.json",
     }
 
 
@@ -207,6 +210,16 @@ def manual_tailor(request: Request, payload: ManualTailorRequest) -> Any:
 
     with get_conn() as conn:
         upsert_job(conn, tailored.record)
+
+    try:
+        maybe_write_job_outreach_notes(
+            raw,
+            Path(tailored.artifact_dir),
+            prefs,
+            use_llm=payload.use_llm,
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("manual tailor: outreach notes failed")
 
     # The warning the user sees is the fetch-side note (if any) - we did still
     # tailor something, so we shouldn't 4xx, but we want them to know we

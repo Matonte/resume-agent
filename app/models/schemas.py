@@ -62,3 +62,17 @@ class GenerateResumeRequest(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     loaded_files: Dict[str, Any]
+
+
+class OutreachSearchHitInput(BaseModel):
+    title: str
+    url: str
+    snippet: str = ""
+    query: str = ""
+    engine: str = ""
+
+
+class OutreachEnrichRequest(BaseModel):
+    company_description: str
+    hits: List[OutreachSearchHitInput]
+    use_llm: bool = True

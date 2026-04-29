@@ -72,3 +72,11 @@ per_source_cap: 15
 scraper:
   min_delay_ms: 1800
   max_delay_ms: 3800
+
+# Optional: after each tailored job, web-search for recruiter / hiring-manager
+# contacts at the company and write outreach_contacts.json when found.
+# Requires GOOGLE_CSE_API_KEY + GOOGLE_CSE_CX and/or BING_SEARCH_KEY in .env.
+# MEETING_ADVISOR_URL adds flask_sample tactical advice when that service is up.
+outreach_for_job:
+  enabled: true
+  max_search_hits: 8

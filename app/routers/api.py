@@ -1,6 +1,8 @@
 import re
 from datetime import datetime
 
+from typing import List
+
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 
@@ -14,6 +16,7 @@ from app.models.schemas import (
     GenerateResumeRequest,
     HealthResponse,
     JobInput,
+    OutreachEnrichRequest,
     ResumeDraftRequest,
     ResumeDraftResponse,
 )
@@ -29,6 +32,8 @@ from app.services.data_loader import (
 )
 from app.services.fit_score import compute_fit_score
 from app.services.llm import is_available as llm_is_available
+from app.services.outreach_enrich import OutreachContactDossier, enrich_outreach_hits
+from app.services.outreach_search import WebSearchHit
 from app.services.resume_docx import generate_tailored_resume_bytes
 from app.services.resume_tailor import generate_resume_draft
 
@@ -91,6 +96,29 @@ def answer(req: AnswerRequest):
 @router.post("/fit-score", response_model=FitScoreResponse)
 def fit_score_endpoint(job: JobInput):
     return _fit_to_response(compute_fit_score(job.description))
+
+
+@router.post("/outreach/enrich", response_model=List[OutreachContactDossier])
+def outreach_enrich(req: OutreachEnrichRequest):
+    if not (req.company_description or "").strip():
+        raise HTTPException(status_code=400, detail="company_description is required")
+    if not req.hits:
+        raise HTTPException(status_code=400, detail="at least one hit is required")
+    hits = [
+        WebSearchHit(
+            title=h.title,
+            url=h.url,
+            snippet=h.snippet or "",
+            engine=h.engine or "",
+            query=h.query or "",
+        )
+        for h in req.hits
+    ]
+    return enrich_outreach_hits(
+        hits,
+        req.company_description.strip(),
+        use_llm=req.use_llm,
+    )
 
 
 @router.post("/full-draft", response_model=FullDraftResponse)

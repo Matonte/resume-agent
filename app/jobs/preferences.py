@@ -60,6 +60,18 @@ class ScraperThrottle(BaseModel):
         return v
 
 
+class OutreachForJobConfig(BaseModel):
+    """After tailoring each job, optionally search the web for recruiter/HM-style
+    contacts at the company and write ``outreach_contacts.json`` when found.
+
+    Requires ``GOOGLE_CSE_*`` and/or ``BING_SEARCH_KEY``. ``MEETING_ADVISOR_URL``
+    improves notes via the flask_sample advisor when set.
+    """
+
+    enabled: bool = False
+    max_search_hits: int = 8
+
+
 class Preferences(BaseModel):
     candidate: CandidateInfo = Field(default_factory=CandidateInfo)
     targets: Targets = Field(default_factory=Targets)
@@ -68,6 +80,7 @@ class Preferences(BaseModel):
     daily_cap: int = 10
     per_source_cap: int = 15
     scraper: ScraperThrottle = Field(default_factory=ScraperThrottle)
+    outreach_for_job: OutreachForJobConfig = Field(default_factory=OutreachForJobConfig)
 
     def enabled_sources(self) -> List[str]:
         return [name for name, cfg in self.sources.items() if cfg.enabled]
@@ -145,6 +158,7 @@ __all__ = [
     "Exclude",
     "SourceConfig",
     "ScraperThrottle",
+    "OutreachForJobConfig",
     "load_preferences",
     "merge_preferences_candidate",
     "DEFAULT_PATH",

@@ -55,6 +55,8 @@ Run the test suite:
 pytest -v
 ```
 
+**LLM / model regression** (offline mocked completions + golden outputs): see [tests/llm_regression/README.md](tests/llm_regression/README.md). Refresh recorded JSON after prompt or guardrail changes with `python scripts/record_llm_regression.py` (requires `OPENAI_API_KEY`).
+
 Key endpoints:
 - `POST /api/classify`        — classify a job description to an archetype
 - `POST /api/fit-score`       — 0-10 fit score with reasons

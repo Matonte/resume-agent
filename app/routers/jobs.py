@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import mimetypes
 from pathlib import Path
@@ -11,6 +12,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
 
 from app.config import settings
+from app.jobs.job_outreach_notes import outreach_badge_for_job
 from app.storage.db import (
     STATUS_APPROVED,
     STATUS_SKIPPED,
@@ -27,7 +29,26 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/jobs", tags=["daily-jobs"])
 
-ALLOWED_ARTIFACTS = {"resume.docx", "cover_letter.docx", "screening.json", "metadata.json"}
+ALLOWED_ARTIFACTS = {
+    "resume.docx",
+    "cover_letter.docx",
+    "screening.json",
+    "metadata.json",
+    "outreach_contacts.json",
+}
+
+
+def _load_outreach_contacts_json(artifact_dir: Optional[str]) -> Optional[Any]:
+    if not artifact_dir:
+        return None
+    path = Path(artifact_dir) / "outreach_contacts.json"
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return data if isinstance(data, list) else None
+    except (json.JSONDecodeError, OSError):
+        return None
 
 
 def _session_uid(request: Request) -> int:
@@ -35,7 +56,7 @@ def _session_uid(request: Request) -> int:
 
 
 def _job_to_dict(j: JobRecord) -> Dict[str, Any]:
-    return {
+    d: Dict[str, Any] = {
         "id": j.id,
         "source": j.source,
         "url": j.url,
@@ -54,6 +75,10 @@ def _job_to_dict(j: JobRecord) -> Dict[str, Any]:
         "discovered_at": j.discovered_at.isoformat() if j.discovered_at else None,
         "posted_at": j.posted_at.isoformat() if j.posted_at else None,
     }
+    badge = outreach_badge_for_job(j)
+    if badge:
+        d["outreach"] = badge
+    return d
 
 
 def _resolve_run_id(run_id: Optional[str], uid: int) -> str:
@@ -88,6 +113,9 @@ def get_job(request: Request, job_id: str) -> JSONResponse:
     payload = _job_to_dict(job)
     payload["screening"] = job.screening
     payload["jd_full"] = job.jd_full
+    contacts = _load_outreach_contacts_json(job.artifact_dir)
+    if contacts is not None:
+        payload["outreach_contacts"] = contacts
     return JSONResponse(payload)
 
 
