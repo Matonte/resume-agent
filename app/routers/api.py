@@ -97,6 +97,8 @@ def health():
             "rewrite_examples": len(load_rewrite_examples()),
             "llm_configured": llm_is_available(),
             "meeting_advisor_configured": settings.meeting_advisor_configured,
+            "meeting_advisor_post_url": settings.meeting_advisor_advise_url or None,
+            "meeting_advisor_pages": ["/meeting-advisor", "/advisor"],
         },
     )
 

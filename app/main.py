@@ -35,10 +35,10 @@ app.include_router(auth_router)
 app.include_router(profiles_router)
 app.include_router(jobs_router)
 app.include_router(manual_router)
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-
-@app.get("/", response_class=HTMLResponse)
+# HTML pages and redirects must be registered *before* mounting /static so the
+# mounted app cannot take precedence in any edge cases (see FastAPI "Mount"
+# docs: mount sub-apps last).
 def review_page() -> HTMLResponse:
     html = (TEMPLATES_DIR / "review.html").read_text(encoding="utf-8")
     return HTMLResponse(content=html)
@@ -81,3 +81,6 @@ def meeting_advisor_page() -> HTMLResponse:
 @app.get("/manual-tailor")
 def manual_tailor_alias_redirect() -> RedirectResponse:
     return RedirectResponse(url="/tailor", status_code=307)
+
+
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
