@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from app.config import settings as app_settings
 from app.main import app
 from app.services import jd_fetcher
 from app.storage.db import DailyRun, get_conn, load_job
@@ -88,6 +89,7 @@ def test_manual_tailor_description_only_path(client, monkeypatch):
 
 
 def test_manual_tailor_meeting_advice_in_response(client, monkeypatch):
+    monkeypatch.setattr(app_settings, "meeting_advisor_url", "http://test.local")
     monkeypatch.setattr(
         "app.routers.manual.advise_for_job_context",
         lambda **kwargs: {"advice": {"opening_move": "Hello", "do": ["Be brief"]}},

@@ -2,6 +2,7 @@
 
 from fastapi.testclient import TestClient
 
+from app.config import settings as app_settings
 from app.main import app
 
 client = TestClient(app)
@@ -72,6 +73,7 @@ def test_fit_score_endpoint():
 
 
 def test_full_draft_with_meeting_advisor_mocked(monkeypatch):
+    monkeypatch.setattr(app_settings, "meeting_advisor_url", "http://test.local")
     monkeypatch.setattr(
         "app.routers.api.advise_for_job_context",
         lambda **kwargs: {"advice": {"opening_move": "Ping"}},
