@@ -47,6 +47,66 @@ def test_outreach_skipped_without_search_keys(tmp_path: Path, monkeypatch: pytes
     assert not (tmp_path / "outreach_contacts.json").exists()
 
 
+def test_outreach_advisor_only_when_no_serp_but_names_and_advisor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    s = settings.model_copy(
+        update={
+            "google_cse_api_key": "",
+            "google_cse_cx": "",
+            "bing_search_key": "",
+            "meeting_advisor_url": "http://127.0.0.1:9",
+        }
+    )
+    monkeypatch.setattr("app.jobs.job_outreach_notes.settings", s)
+    monkeypatch.setattr(
+        "app.jobs.job_outreach_notes.extract_people_from_posting_corpus",
+        lambda *a, **k: [
+            PostingPerson(
+                name="Taylor Morgan",
+                role_hint="Recruiter",
+                evidence="Taylor Morgan will schedule interviews.",
+            )
+        ],
+    )
+    dossier = OutreachContactDossier(
+        title="Taylor Morgan — Acme Pay",
+        url="u",
+        snippet="s",
+        inferred_primary_role="recruiter",
+        recruiter=OutreachStakeholderNotes(summary="x", how_to_talk=["a"]),
+        hiring_manager=OutreachStakeholderNotes(),
+        combined_opening="Hello",
+        whoiswhat_raw={"meeting_advisor": {"advice": {}}},
+        llm_applied=False,
+    )
+    monkeypatch.setattr(
+        "app.jobs.job_outreach_notes.advise_posting_people_dossiers",
+        lambda *a, **k: [dossier],
+    )
+    meta = {"job_id": "abc", "company": "Acme Pay"}
+    (tmp_path / "metadata.json").write_text(json.dumps(meta), encoding="utf-8")
+
+    jd = _raw()
+    jd.jd_full = (
+        jd.jd_full + " Taylor Morgan will schedule interviews. " * 2
+    )  # ensure desc length if needed
+    prefs = Preferences(
+        outreach_for_job=OutreachForJobConfig(
+            enabled=True,
+            posting_people=True,
+            max_search_hits=4,
+        )
+    )
+    maybe_write_job_outreach_notes(jd, tmp_path, prefs, use_llm=False)
+
+    data = json.loads((tmp_path / "outreach_contacts.json").read_text(encoding="utf-8"))
+    assert len(data) == 1
+    assert data[0]["inferred_primary_role"] == "recruiter"
+    meta2 = json.loads((tmp_path / "metadata.json").read_text(encoding="utf-8"))
+    assert meta2["outreach"]["outreach_source"] == "posting_people_meeting_advisor"
+
+
 def test_outreach_writes_when_recruiter_found(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     s = settings.model_copy(
         update={"google_cse_api_key": "k", "google_cse_cx": "cx", "bing_search_key": ""}

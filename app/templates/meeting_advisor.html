@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Resume Agent — Meeting advisor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/jobs_today.css" />
+  <link rel="stylesheet" href="/static/tailor.css" />
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <h1>Meeting advisor <span class="wordmark-tag" aria-hidden="true">Prep</span></h1>
+        <p class="subtitle">
+          Paste a job description and get conversation prep from your
+          <code>MEETING_ADVISOR_URL</code> service (<code>POST …/api/v1/advise</code>).
+          Optional: focus on one contact name, or advise for <strong>each name</strong>
+          the model finds in the posting (uses OpenAI when “Use LLM” is on).
+        </p>
+      </div>
+      <div class="links">
+        <a href="/account">Account</a>
+        <a href="/jobs/today">Queue</a>
+        <a href="/tailor">Intake</a>
+        <a href="/">Review</a>
+        <a href="/docs" target="_blank">Docs</a>
+      </div>
+    </header>
+
+    <section class="panel tailor-panel">
+      <form id="advisor-form" class="tailor-form" autocomplete="off">
+        <div class="field">
+          <label for="description">Job description</label>
+          <textarea
+            id="description"
+            name="description"
+            rows="14"
+            required
+            placeholder="Paste the job posting (50+ characters)."></textarea>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="company">Company</label>
+            <input id="company" name="company" type="text" placeholder="Acme" />
+          </div>
+          <div class="field">
+            <label for="title">Role title</label>
+            <input id="title" name="title" type="text" placeholder="Senior Backend Engineer" />
+          </div>
+          <div class="field">
+            <label for="listing_url">Listing URL (optional)</label>
+            <input id="listing_url" name="listing_url" type="url" placeholder="https://…" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="subject_name">Focus person (optional)</label>
+          <input id="subject_name" name="subject_name" type="text" placeholder="Recruiter or HM name — leave blank for generic hiring-team prep" />
+        </div>
+
+        <div class="field-row field-row-controls">
+          <label class="checkbox">
+            <input id="extract-people" name="extract_people" type="checkbox" />
+            <span>Advise for <strong>each name</strong> found in the posting</span>
+          </label>
+          <label class="checkbox">
+            <input id="use-llm" name="use_llm" type="checkbox" checked />
+            <span>Use LLM to extract names (needs OPENAI_API_KEY)</span>
+          </label>
+          <button id="submit-btn" type="submit" class="primary">Run advisor</button>
+        </div>
+      </form>
+
+      <div id="status" class="status" hidden></div>
+    </section>
+
+    <section id="result-panel" class="panel result-panel" hidden>
+      <h2>Result</h2>
+      <pre id="result-json" class="jd-preview" style="white-space: pre-wrap; max-height: 70vh; overflow: auto;"></pre>
+      <p class="hint" id="download-hint" hidden>
+        <button type="button" class="secondary" id="download-json">Download JSON</button>
+      </p>
+    </section>
+  </main>
+  <script src="/static/advisor.js"></script>
+</body>
+</html>

@@ -10,8 +10,9 @@ The daily runner calls :func:`maybe_write_job_outreach_notes` **only for jobs
 that survive fit ranking** (the kept set), not for skipped listings. Manual
 tailor invokes it for the single job when enabled.
 
-Requires Google/Bing search keys in settings. Meeting advisor URL is optional
-but adds the flask_sample tactical JSON when configured.
+Requires Google/Bing search keys for full SERP outreach. When search keys are
+missing but ``MEETING_ADVISOR_URL`` is set and ``posting_people`` is true,
+named people in the JD still get advisor-backed dossiers (no web search).
 """
 
 from __future__ import annotations
@@ -25,7 +26,11 @@ from app.config import settings
 from app.jobs.preferences import OutreachForJobConfig, Preferences
 from app.scrapers.base import RawJob
 from app.storage.db import JobRecord
-from app.services.outreach_enrich import OutreachContactDossier, enrich_outreach_hits
+from app.services.outreach_enrich import (
+    OutreachContactDossier,
+    advise_posting_people_dossiers,
+    enrich_outreach_hits,
+)
 from app.services.outreach_posting_people import (
     build_followup_queries,
     extract_people_from_posting_corpus,
@@ -71,17 +76,12 @@ def maybe_write_job_outreach_notes(
     cfg = prefs.outreach_for_job
     if not cfg.enabled:
         return
-    if not settings.web_search_configured:
-        logger.info(
-            "outreach_for_job skipped (no web search API keys) for %s",
-            (raw.company or raw.title or "")[:80],
-        )
-        return
     desc = _build_outreach_description(raw)
     if not desc.strip():
         return
 
     followup_queries: list[str] = []
+    extracted: list = []
     if cfg.posting_people:
         corpus = merge_posting_corpus(raw, fetch_apply_page=cfg.fetch_apply_page)
         extracted = extract_people_from_posting_corpus(
@@ -100,6 +100,68 @@ def maybe_write_job_outreach_notes(
                 "outreach_for_job: extracted %d named people from posting text",
                 len(extracted),
             )
+
+    if not settings.web_search_configured:
+        if (
+            settings.meeting_advisor_configured
+            and cfg.posting_people
+            and extracted
+        ):
+            try:
+                dossiers = advise_posting_people_dossiers(
+                    extracted,
+                    company=(raw.company or "").strip(),
+                    title=(raw.title or "").strip(),
+                    job_description_excerpt=(raw.jd_full or "").strip(),
+                    listing_url=(raw.url or raw.apply_url or "").strip(),
+                    use_llm=use_llm,
+                )
+            except Exception:
+                logger.exception(
+                    "outreach_for_job: posting-people advisor-only enrich failed"
+                )
+                return
+            allowed = _allowed_outreach_roles(cfg)
+            matched: List[OutreachContactDossier] = [
+                d
+                for d in dossiers
+                if (d.inferred_primary_role or "").strip().lower() in allowed
+            ]
+            if not matched:
+                logger.info(
+                    "outreach_for_job: advisor-only path produced no allowed-role "
+                    "contacts for %s",
+                    (raw.company or "")[:60],
+                )
+                return
+            payload: List[Dict[str, Any]] = [d.model_dump(mode="json") for d in matched]
+            out_json = job_dir / "outreach_contacts.json"
+            out_json.write_text(
+                json.dumps(payload, indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            _patch_metadata_outreach(
+                job_dir,
+                {
+                    "outreach_written": True,
+                    "outreach_contacts_file": "outreach_contacts.json",
+                    "outreach_contact_count": len(matched),
+                    "outreach_roles": [d.inferred_primary_role for d in matched],
+                    "outreach_source": "posting_people_meeting_advisor",
+                },
+            )
+            logger.info(
+                "outreach_for_job: advisor-only (no SERP) wrote %d contacts for %s → %s",
+                len(matched),
+                (raw.company or "")[:50],
+                out_json.name,
+            )
+        else:
+            logger.info(
+                "outreach_for_job skipped (no web search API keys) for %s",
+                (raw.company or raw.title or "")[:80],
+            )
+        return
 
     try:
         search = run_combination_search(desc)

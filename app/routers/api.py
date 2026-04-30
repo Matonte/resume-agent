@@ -1,9 +1,9 @@
 import re
 from datetime import datetime
-
-from typing import List
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 from fastapi.responses import Response
 
 from app.models.schemas import (
@@ -33,9 +33,15 @@ from app.services.data_loader import (
 from app.services.fit_score import compute_fit_score
 from app.services.llm import is_available as llm_is_available
 from app.config import settings
+from app.scrapers.base import RawJob
+from app.services.outreach_posting_people import (
+    extract_people_from_posting_corpus,
+    merge_posting_corpus,
+)
 from app.services.outreach_enrich import (
     OutreachContactDossier,
     advise_for_job_context,
+    advise_posting_people_dossiers,
     enrich_outreach_hits,
 )
 from app.services.outreach_search import WebSearchHit
@@ -45,6 +51,26 @@ from app.services.resume_tailor import generate_resume_draft
 router = APIRouter()
 
 _SAFE_FILENAME_RE = re.compile(r"[^A-Za-z0-9_.-]+")
+
+
+class MeetingAdvisorBrowserRequest(BaseModel):
+    """Standalone meeting-advisor prep (no resume tailoring)."""
+
+    description: str
+    company: str = ""
+    title: str = ""
+    listing_url: str = ""
+    subject_name: str = ""
+    #: When true, extract named people from the JD (needs LLM) and advise per person.
+    extract_people: bool = False
+    use_llm: bool = True
+
+
+class MeetingAdvisorBrowserResponse(BaseModel):
+    configured: bool
+    meeting_advisor_note: Optional[str] = None
+    advice: Optional[Dict[str, Any]] = None
+    people: Optional[List[Dict[str, Any]]] = None
 
 
 def _fit_to_response(fit) -> FitScoreResponse:
@@ -164,6 +190,77 @@ def full_draft(req: FullDraftRequest):
         fit=fit,
         meeting_advice=meeting_advice,
         meeting_advisor_note=meeting_note,
+    )
+
+
+@router.post("/meeting-advisor", response_model=MeetingAdvisorBrowserResponse)
+def meeting_advisor_standalone(body: MeetingAdvisorBrowserRequest):
+    """Conversation prep only: POST JD + optional person, or extract names from JD."""
+    if not settings.meeting_advisor_configured:
+        return MeetingAdvisorBrowserResponse(
+            configured=False,
+            meeting_advisor_note="MEETING_ADVISOR_URL is not set.",
+        )
+    text = (body.description or "").strip()
+    if len(text) < 50:
+        raise HTTPException(
+            status_code=400,
+            detail="description must be at least 50 characters",
+        )
+    co = (body.company or "").strip()
+    ti = (body.title or "").strip()
+    listing = (body.listing_url or "").strip()
+
+    if body.extract_people:
+        raw = RawJob(
+            source="meeting_advisor",
+            url=listing or "https://example.invalid/job",
+            title=ti or "Role",
+            company=co or "Company",
+            jd_full=text,
+        )
+        corpus = merge_posting_corpus(raw, fetch_apply_page=False)
+        extracted = extract_people_from_posting_corpus(
+            corpus,
+            co,
+            max_people=8,
+            use_llm=body.use_llm,
+        )
+        if not extracted:
+            return MeetingAdvisorBrowserResponse(
+                configured=True,
+                meeting_advisor_note=(
+                    "No names extracted from the posting. Use a longer JD, set "
+                    "OPENAI_API_KEY for LLM extraction, or uncheck "
+                    "“Advise each name in posting” and set a focus person."
+                ),
+                people=[],
+            )
+        dossiers = advise_posting_people_dossiers(
+            extracted,
+            company=co,
+            title=ti,
+            job_description_excerpt=text,
+            listing_url=listing,
+            use_llm=body.use_llm,
+        )
+        return MeetingAdvisorBrowserResponse(
+            configured=True,
+            people=[d.model_dump(mode="json") for d in dossiers],
+        )
+
+    advice = advise_for_job_context(
+        subject_name=(body.subject_name or "").strip(),
+        company=co,
+        title=ti,
+        job_description_excerpt=text,
+        listing_url=listing,
+    )
+    note: Optional[str] = None
+    if advice is None:
+        note = "Meeting advisor returned no response (check server logs)."
+    return MeetingAdvisorBrowserResponse(
+        configured=True, meeting_advisor_note=note, advice=advice
     )
 
 

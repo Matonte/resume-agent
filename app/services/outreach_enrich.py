@@ -37,6 +37,7 @@ from pydantic import BaseModel, Field
 
 from app.config import settings
 from app.services.llm import complete_json, is_available
+from app.services.outreach_posting_people import PostingPerson
 from app.services.outreach_search import WebSearchHit
 
 logger = logging.getLogger(__name__)
@@ -154,6 +155,78 @@ def advise_for_job_context(
     )
     desc = f"{c}\n{t}\n{excerpt[:2500]}"
     return _call_meeting_advisor(hit, desc, "unknown")
+
+
+def advise_posting_people_dossiers(
+    people: Sequence[PostingPerson],
+    *,
+    company: str,
+    title: str,
+    job_description_excerpt: str,
+    listing_url: str = "",
+    use_llm: bool = True,
+) -> List[OutreachContactDossier]:
+    """One meeting_advisor call per name extracted from the JD (no web search).
+
+    Used when ``outreach_for_job`` wants posting-level contacts but SERP keys
+    are missing: still surface advisor-backed outreach rows for named people.
+    """
+    if not people or not _meeting_advisor_base_url():
+        return []
+    c = (company or "").strip() or "Unknown company"
+    t = (title or "").strip() or "Role"
+    excerpt = (job_description_excerpt or "").strip()
+    desc = f"{c}\n{t}\n{excerpt[:2500]}"
+    list_url = (listing_url or "").strip() or "resume-agent://jd-person"
+    out: List[OutreachContactDossier] = []
+
+    for person in people:
+        p_snippet_parts = [person.evidence] if person.evidence else []
+        if excerpt:
+            p_snippet_parts.append(excerpt[:1800])
+        snippet = "\n\n".join(x for x in p_snippet_parts if x)[:3500]
+        role = _infer_role_from_title(
+            f"{person.name} {person.role_hint}",
+            f"{person.evidence} {person.role_hint}",
+        )
+        if role == "unknown":
+            role = _infer_role_from_title(person.role_hint or "", person.evidence or "")
+        if role == "unknown":
+            role = "hiring_manager"
+
+        hit = WebSearchHit(
+            title=f"{person.name.strip()} — {c}",
+            url=list_url,
+            snippet=snippet,
+            engine="posting_person",
+            query="",
+        )
+        dossier = _fallback_dossier(hit, role)
+        advisor_resp = _call_meeting_advisor(hit, desc, role)
+        if advisor_resp:
+            _merge_meeting_advisor_into_dossier(dossier, advisor_resp)
+
+        if use_llm:
+            llm_payload = _analyze_with_llm(hit, desc, dossier.whoiswhat_raw)
+            if isinstance(llm_payload, dict):
+                dossier.llm_applied = True
+                ir = str(llm_payload.get("inferred_primary_role") or "").strip()
+                if ir:
+                    dossier.inferred_primary_role = ir
+                dossier.recruiter = _merge_stakeholder(
+                    dossier.recruiter, _normalize_stakeholder_blob(llm_payload.get("recruiter"))
+                )
+                dossier.hiring_manager = _merge_stakeholder(
+                    dossier.hiring_manager,
+                    _normalize_stakeholder_blob(llm_payload.get("hiring_manager")),
+                )
+                coal = str(llm_payload.get("combined_opening") or "").strip()
+                if coal:
+                    dossier.combined_opening = coal
+
+        out.append(dossier)
+
+    return out
 
 
 def _attach_meeting_advisor_raw(
@@ -528,4 +601,5 @@ __all__ = [
     "OutreachContactDossier",
     "enrich_outreach_hits",
     "advise_for_job_context",
+    "advise_posting_people_dossiers",
 ]

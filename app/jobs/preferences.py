@@ -64,12 +64,16 @@ class OutreachForJobConfig(BaseModel):
     """After tailoring each job, optionally search the web for recruiter/HM-style
     contacts at the company and write ``outreach_contacts.json`` when found.
 
-    Requires ``GOOGLE_CSE_*`` and/or ``BING_SEARCH_KEY``. ``MEETING_ADVISOR_URL``
-    improves notes via the flask_sample advisor when set.
+    Full SERP path requires ``GOOGLE_CSE_*`` and/or ``BING_SEARCH_KEY``.
+    ``MEETING_ADVISOR_URL`` improves notes via the advisor on each hit.
 
     When ``posting_people`` is true, the job description (and optionally the
     apply URL) is scanned for named people; each yields an extra name+company
-    search before enrichment.
+    search before enrichment when SERP is configured.
+
+    **Without** web search keys, if ``MEETING_ADVISOR_URL`` is set and
+    ``posting_people`` is true, extracted names still get one advisor call each
+    and can populate ``outreach_contacts.json`` (no Google/Bing required).
     """
 
     enabled: bool = False

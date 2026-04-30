@@ -91,6 +91,86 @@ def test_full_draft_with_meeting_advisor_mocked(monkeypatch):
     assert data["meeting_advice"]["advice"]["opening_move"] == "Ping"
 
 
+def test_meeting_advisor_standalone_not_configured(monkeypatch):
+    monkeypatch.setattr(app_settings, "meeting_advisor_url", "")
+    res = client.post(
+        "/api/meeting-advisor",
+        json={"description": "Senior Backend Engineer role with Python and AWS " * 2},
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["configured"] is False
+
+
+def test_meeting_advisor_standalone_single_mocked(monkeypatch):
+    monkeypatch.setattr(app_settings, "meeting_advisor_url", "http://test.local")
+    monkeypatch.setattr(
+        "app.routers.api.advise_for_job_context",
+        lambda **kwargs: {"advice": {"opening_move": "Brief intro"}},
+    )
+    res = client.post(
+        "/api/meeting-advisor",
+        json={
+            "description": "Senior Backend Engineer role with Python and AWS " * 2,
+            "company": "Acme",
+            "subject_name": "Jamie Chen",
+            "extract_people": False,
+        },
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["configured"] is True
+    assert data["advice"]["advice"]["opening_move"] == "Brief intro"
+
+
+def test_meeting_advisor_standalone_extract_people_mocked(monkeypatch):
+    from app.services.outreach_enrich import OutreachContactDossier, OutreachStakeholderNotes
+    from app.services.outreach_posting_people import PostingPerson
+
+    monkeypatch.setattr(app_settings, "meeting_advisor_url", "http://test.local")
+    monkeypatch.setattr(
+        "app.routers.api.extract_people_from_posting_corpus",
+        lambda *a, **k: [
+            PostingPerson(name="Riley Nova", role_hint="Talent Partner", evidence="Riley Nova")
+        ],
+    )
+
+    def _fake_dossiers(people, **kwargs):
+        return [
+            OutreachContactDossier(
+                title="Riley Nova — Co",
+                url="x",
+                snippet="s",
+                inferred_primary_role="recruiter",
+                recruiter=OutreachStakeholderNotes(),
+                hiring_manager=OutreachStakeholderNotes(),
+                combined_opening="Hi",
+            )
+        ]
+
+    monkeypatch.setattr("app.routers.api.advise_posting_people_dossiers", _fake_dossiers)
+    res = client.post(
+        "/api/meeting-advisor",
+        json={
+            "description": "Senior Backend Engineer role with Python and AWS " * 2,
+            "company": "Co",
+            "extract_people": True,
+            "use_llm": False,
+        },
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["configured"] is True
+    assert len(data["people"]) == 1
+    assert data["people"][0]["inferred_primary_role"] == "recruiter"
+
+
+def test_meeting_advisor_page_loads():
+    res = client.get("/meeting-advisor")
+    assert res.status_code == 200
+    assert "Meeting advisor" in res.text
+
+
 def test_generate_resume_download():
     res = client.post(
         "/api/generate-resume",

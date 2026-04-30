@@ -62,6 +62,12 @@ def account_page() -> HTMLResponse:
     return HTMLResponse(content=html)
 
 
+@app.get("/meeting-advisor", response_class=HTMLResponse)
+def meeting_advisor_page() -> HTMLResponse:
+    html = (TEMPLATES_DIR / "meeting_advisor.html").read_text(encoding="utf-8")
+    return HTMLResponse(content=html)
+
+
 @app.get("/manual-tailor")
 def manual_tailor_alias_redirect() -> RedirectResponse:
     return RedirectResponse(url="/tailor", status_code=307)
