@@ -21,6 +21,15 @@
     return `/api/jobs/${encodeURIComponent(id)}/artifact?file=${encodeURIComponent(file)}`;
   }
 
+  function applyLinkIsJobrightOnly(href) {
+    try {
+      const host = new URL(href).hostname.toLowerCase();
+      return host === 'jobright.ai' || host.endsWith('.jobright.ai');
+    } catch (_) {
+      return false;
+    }
+  }
+
   function renderJob(job, fullDetail) {
     const detail = fullDetail || {};
     const screening = detail.screening || [];
@@ -65,6 +74,8 @@
     const listingHref = job.url;
     const showListingLink =
       job.apply_url && job.url && String(job.apply_url) !== String(job.url);
+    const jobrightGated =
+      job.source === 'jobright' && applyLinkIsJobrightOnly(applyHref);
     const card = document.createElement('div');
     card.className = 'job-card';
     card.dataset.status = status;
@@ -92,6 +103,11 @@
             : ''
         }
       </div>
+      ${
+        jobrightGated
+          ? '<p class="job-link-note">This href points at jobright.ai. Without an active Jobright login in this browser it will redirect to sign-in. After the next daily scrape we try to store a direct ATS/careers link as &ldquo;Open apply link&rdquo; when the posting exposes one.</p>'
+          : ''
+      }
       <div class="job-actions">
         <a href="${escape(applyHref)}" target="_blank" rel="noopener">Open apply link</a>
         ${

@@ -367,3 +367,11 @@
   color: #7af5ff;
   text-shadow: 0 0 8px rgba(122, 245, 255, 0.45);
 }
+
+.job-link-note {
+  font-size: 0.85rem;
+  color: var(--fg-dim);
+  margin: 0 0 10px 0;
+  max-width: 52em;
+  line-height: 1.35;
+}
