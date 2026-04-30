@@ -86,9 +86,9 @@ def _call_meeting_advisor(
     *,
     client: Optional[httpx.Client] = None,
 ) -> Optional[Dict[str, Any]]:
-    """POST to flask_sample meeting_advisor /api/v1/advise."""
-    base = _meeting_advisor_base_url()
-    if not base:
+    """POST to meeting_advisor (settings.meeting_advisor_advise_url)."""
+    url = (settings.meeting_advisor_advise_url or "").strip()
+    if not url:
         return None
     subject = _subject_name_from_hit(hit)
     notes = (
@@ -108,7 +108,6 @@ def _call_meeting_advisor(
         "source_hint": "",
         "context": context,
     }
-    url = f"{base}/api/v1/advise"
     try:
         if client is not None:
             r = client.post(url, json=payload)
@@ -116,12 +115,21 @@ def _call_meeting_advisor(
             with httpx.Client(timeout=120.0) as c:
                 r = c.post(url, json=payload)
         if r.status_code != 200:
-            logger.warning(
-                "meeting_advisor %s returned HTTP %s: %s",
-                url,
-                r.status_code,
-                (r.text or "")[:500],
-            )
+            if r.status_code == 404:
+                logger.warning(
+                    "meeting_advisor HTTP 404 for POST %s — MEETING_ADVISOR_URL must be "
+                    "the base URL of the advisor service (the app that implements this "
+                    "path), not resume-agent alone. Example: http://127.0.0.1:5003 with "
+                    "flask_sample. Override path with MEETING_ADVISOR_ADVISE_PATH if needed.",
+                    url,
+                )
+            else:
+                logger.warning(
+                    "meeting_advisor %s returned HTTP %s: %s",
+                    url,
+                    r.status_code,
+                    (r.text or "")[:500],
+                )
             return None
         data = r.json()
         return data if isinstance(data, dict) else None

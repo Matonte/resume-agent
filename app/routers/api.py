@@ -193,6 +193,22 @@ def full_draft(req: FullDraftRequest):
     )
 
 
+@router.get("/meeting-advisor")
+def meeting_advisor_api_help():
+    """Browser GET /api/meeting-advisor shows how to call the JSON endpoint (avoids confusing 405)."""
+    return {
+        "method": "POST",
+        "ui": "/meeting-advisor",
+        "aliases": ["/advisor", "/meeting-advisor/"],
+        "meeting_advisor_configured": settings.meeting_advisor_configured,
+        "resume_agent_posts_to": settings.meeting_advisor_advise_url or None,
+        "hint": (
+            "MEETING_ADVISOR_URL is the base of the advisor app (not resume-agent "
+            "unless that stack implements the advise route). Example: http://127.0.0.1:5003"
+        ),
+    }
+
+
 @router.post("/meeting-advisor", response_model=MeetingAdvisorBrowserResponse)
 def meeting_advisor_standalone(body: MeetingAdvisorBrowserRequest):
     """Conversation prep only: POST JD + optional person, or extract names from JD."""
@@ -258,7 +274,13 @@ def meeting_advisor_standalone(body: MeetingAdvisorBrowserRequest):
     )
     note: Optional[str] = None
     if advice is None:
-        note = "Meeting advisor returned no response (check server logs)."
+        note = (
+            "Meeting advisor returned no response. If the log shows HTTP 404, "
+            "MEETING_ADVISOR_URL must be the base URL of the advisor service "
+            "(the process that implements POST …/api/v1/advise), e.g. "
+            "http://127.0.0.1:5003 — not resume-agent alone unless you run the "
+            "advisor there. Optionally set MEETING_ADVISOR_ADVISE_PATH."
+        )
     return MeetingAdvisorBrowserResponse(
         configured=True, meeting_advisor_note=note, advice=advice
     )

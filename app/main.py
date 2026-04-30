@@ -62,6 +62,16 @@ def account_page() -> HTMLResponse:
     return HTMLResponse(content=html)
 
 
+@app.get("/meeting-advisor/", response_class=RedirectResponse)
+def meeting_advisor_page_trailing_slash() -> RedirectResponse:
+    return RedirectResponse(url="/meeting-advisor", status_code=307)
+
+
+@app.get("/advisor", response_class=RedirectResponse)
+def advisor_short_link() -> RedirectResponse:
+    return RedirectResponse(url="/meeting-advisor", status_code=307)
+
+
 @app.get("/meeting-advisor", response_class=HTMLResponse)
 def meeting_advisor_page() -> HTMLResponse:
     html = (TEMPLATES_DIR / "meeting_advisor.html").read_text(encoding="utf-8")

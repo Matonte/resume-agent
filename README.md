@@ -77,7 +77,8 @@ Copy from [`.env.example`](.env.example). Commonly used:
 |----------|---------|
 | `OPENAI_API_KEY` | LLM polish, posting-people extraction, outreach enrichment |
 | `MODEL_NAME` | Chat model id (default in `.env.example`) |
-| `MEETING_ADVISOR_URL` | Base URL for `POST …/api/v1/advise` (e.g. `http://127.0.0.1:8000` if the advisor is mounted on the same app) |
+| `MEETING_ADVISOR_URL` | Base URL of the **advisor app** only (default POST path `/api/v1/advise`). Use the advisor process, e.g. `http://127.0.0.1:5003` — **not** resume-agent’s URL unless that stack serves the advise route |
+| `MEETING_ADVISOR_ADVISE_PATH` | Optional; default `/api/v1/advise` if your advisor uses a different path |
 | `GOOGLE_CSE_API_KEY` + `GOOGLE_CSE_CX` | Web search for outreach (optional; can use Bing instead) |
 | `BING_SEARCH_KEY` | Alternative/additional web search |
 | `GMAIL_ADDRESS` + `GMAIL_APP_PASSWORD` | Daily digest SMTP (optional) |

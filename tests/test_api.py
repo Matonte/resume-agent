@@ -171,6 +171,23 @@ def test_meeting_advisor_page_loads():
     assert "Meeting advisor" in res.text
 
 
+def test_meeting_advisor_aliases_redirect():
+    r = client.get("/advisor", follow_redirects=False)
+    assert r.status_code == 307
+    assert r.headers.get("location") == "/meeting-advisor"
+    r2 = client.get("/meeting-advisor/", follow_redirects=False)
+    assert r2.status_code == 307
+    assert r2.headers.get("location") == "/meeting-advisor"
+
+
+def test_api_meeting_advisor_get_help():
+    res = client.get("/api/meeting-advisor")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["method"] == "POST"
+    assert data["ui"] == "/meeting-advisor"
+
+
 def test_generate_resume_download():
     res = client.post(
         "/api/generate-resume",

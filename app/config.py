@@ -86,8 +86,15 @@ class Settings(BaseModel):
     )
 
     # meeting_advisor service (WhoIsWhat K + WhoIsHoss + tactical JSON).
-    # POST target: {meeting_advisor_url}/api/v1/advise (e.g. http://127.0.0.1:8000).
+    # Base URL only — POST goes to meeting_advisor_url + meeting_advisor_advise_path.
+    # Must be the process that implements POST .../api/v1/advise (often a
+    # separate port, e.g. flask_sample on :5003), NOT resume-agent's URL unless
+    # you mount that route on the same server.
     meeting_advisor_url: str = _strip(os.getenv("MEETING_ADVISOR_URL"))
+    #: Path appended to base (leading slash). Override if your advisor uses a different route.
+    meeting_advisor_advise_path: str = (
+        _strip(os.getenv("MEETING_ADVISOR_ADVISE_PATH")) or "/api/v1/advise"
+    )
 
     def site_credentials(self, site: str) -> tuple[str, str]:
         """Return `(email, password)` for a site. Empty strings when unset.
@@ -121,6 +128,15 @@ class Settings(BaseModel):
         return bool(
             (self.google_cse_api_key and self.google_cse_cx) or self.bing_search_key
         )
+
+    @property
+    def meeting_advisor_advise_url(self) -> str:
+        """Full URL for POST (base stripped of trailing slash + normalized path)."""
+        base = (self.meeting_advisor_url or "").strip().rstrip("/")
+        path = (self.meeting_advisor_advise_path or "/api/v1/advise").strip()
+        if not path.startswith("/"):
+            path = "/" + path
+        return f"{base}{path}" if base else ""
 
     @property
     def meeting_advisor_configured(self) -> bool:
