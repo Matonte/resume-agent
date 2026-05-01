@@ -39,6 +39,9 @@ app.include_router(manual_router)
 # HTML pages and redirects must be registered *before* mounting /static so the
 # mounted app cannot take precedence in any edge cases (see FastAPI "Mount"
 # docs: mount sub-apps last).
+
+
+@app.get("/", response_class=HTMLResponse)
 def review_page() -> HTMLResponse:
     html = (TEMPLATES_DIR / "review.html").read_text(encoding="utf-8")
     return HTMLResponse(content=html)
@@ -64,16 +67,23 @@ def account_page() -> HTMLResponse:
 
 @app.get("/meeting-advisor/", response_class=RedirectResponse)
 def meeting_advisor_page_trailing_slash() -> RedirectResponse:
-    return RedirectResponse(url="/meeting-advisor", status_code=307)
+    return RedirectResponse(url="/api/meeting-advisor/page", status_code=307)
 
 
 @app.get("/advisor", response_class=RedirectResponse)
 def advisor_short_link() -> RedirectResponse:
-    return RedirectResponse(url="/meeting-advisor", status_code=307)
+    return RedirectResponse(url="/api/meeting-advisor/page", status_code=307)
 
 
 @app.get("/meeting-advisor", response_class=HTMLResponse)
 def meeting_advisor_page() -> HTMLResponse:
+    html = (TEMPLATES_DIR / "meeting_advisor.html").read_text(encoding="utf-8")
+    return HTMLResponse(content=html)
+
+
+@app.get("/meeting-advisor/page", response_class=HTMLResponse)
+def meeting_advisor_page_nested_path() -> HTMLResponse:
+    """Same template as `/meeting-advisor` for routers/proxies that expect a `/page` segment."""
     html = (TEMPLATES_DIR / "meeting_advisor.html").read_text(encoding="utf-8")
     return HTMLResponse(content=html)
 
@@ -84,3 +94,5 @@ def manual_tailor_alias_redirect() -> RedirectResponse:
 
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+# Same assets under `/api/static` for reverse proxies that only forward `/api/*`.
+app.mount("/api/static", StaticFiles(directory=STATIC_DIR), name="api_static")
