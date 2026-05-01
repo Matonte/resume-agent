@@ -174,10 +174,28 @@ def test_meeting_advisor_page_loads():
 def test_meeting_advisor_aliases_redirect():
     r = client.get("/advisor", follow_redirects=False)
     assert r.status_code == 307
-    assert r.headers.get("location") == "/meeting-advisor"
+    assert r.headers.get("location") == "/api/meeting-advisor/page"
     r2 = client.get("/meeting-advisor/", follow_redirects=False)
     assert r2.status_code == 307
-    assert r2.headers.get("location") == "/meeting-advisor"
+    assert r2.headers.get("location") == "/api/meeting-advisor/page"
+
+
+def test_meeting_advisor_nested_page_loads():
+    res = client.get("/meeting-advisor/page")
+    assert res.status_code == 200
+    assert "Meeting advisor" in res.text
+
+
+def test_api_meeting_advisor_trailing_slash_redirects():
+    r = client.get("/api/meeting-advisor/", follow_redirects=False)
+    assert r.status_code == 307
+    assert r.headers.get("location") == "/api/meeting-advisor/page"
+
+
+def test_meeting_advisor_page_under_api_loads():
+    res = client.get("/api/meeting-advisor/page")
+    assert res.status_code == 200
+    assert "Meeting advisor" in res.text
 
 
 def test_api_meeting_advisor_get_help():
@@ -185,7 +203,7 @@ def test_api_meeting_advisor_get_help():
     assert res.status_code == 200
     data = res.json()
     assert data["method"] == "POST"
-    assert data["ui"] == "/meeting-advisor"
+    assert data["ui"] == "/api/meeting-advisor/page"
 
 
 def test_generate_resume_download():

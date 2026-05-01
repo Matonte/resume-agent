@@ -1,10 +1,11 @@
 import re
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from fastapi.responses import Response
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from app.models.schemas import (
     AnswerRequest,
@@ -49,6 +50,8 @@ from app.services.resume_docx import generate_tailored_resume_bytes
 from app.services.resume_tailor import generate_resume_draft
 
 router = APIRouter()
+
+_TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
 
 _SAFE_FILENAME_RE = re.compile(r"[^A-Za-z0-9_.-]+")
 
@@ -98,7 +101,11 @@ def health():
             "llm_configured": llm_is_available(),
             "meeting_advisor_configured": settings.meeting_advisor_configured,
             "meeting_advisor_post_url": settings.meeting_advisor_advise_url or None,
-            "meeting_advisor_pages": ["/meeting-advisor", "/advisor"],
+            "meeting_advisor_pages": [
+                "/api/meeting-advisor/page",
+                "/meeting-advisor",
+                "/advisor",
+            ],
         },
     )
 
@@ -195,12 +202,26 @@ def full_draft(req: FullDraftRequest):
     )
 
 
+@router.get("/meeting-advisor/", response_class=RedirectResponse, include_in_schema=False)
+def meeting_advisor_under_api_trailing_slash() -> RedirectResponse:
+    """`/api/meeting-advisor/` is a common mistaken URL; send users to the HTML UI."""
+    return RedirectResponse(url="/api/meeting-advisor/page", status_code=307)
+
+
+@router.get("/meeting-advisor/page", response_class=HTMLResponse, include_in_schema=False)
+def meeting_advisor_page_under_api() -> HTMLResponse:
+    """Meeting advisor UI under `/api/...` for reverse proxies that only forward `/api/*`."""
+    html = (_TEMPLATES_DIR / "meeting_advisor.html").read_text(encoding="utf-8")
+    return HTMLResponse(content=html)
+
+
 @router.get("/meeting-advisor")
 def meeting_advisor_api_help():
     """Browser GET /api/meeting-advisor shows how to call the JSON endpoint (avoids confusing 405)."""
     return {
         "method": "POST",
-        "ui": "/meeting-advisor",
+        "ui": "/api/meeting-advisor/page",
+        "ui_root_path": "/meeting-advisor",
         "aliases": ["/advisor", "/meeting-advisor/"],
         "meeting_advisor_configured": settings.meeting_advisor_configured,
         "resume_agent_posts_to": settings.meeting_advisor_advise_url or None,
