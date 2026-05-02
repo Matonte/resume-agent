@@ -18,10 +18,13 @@ Endpoints:
             "use_llm":     bool = True,
             "meeting_advisor": bool = True,
             "advisor_subject_name": Optional[str],
+            "extract_posting_people": bool = True,
         }
         Returns the tailored `JobRecord` plus artifact download URLs, and when
         ``meeting_advisor`` is true and ``MEETING_ADVISOR_URL`` is set, includes
-        ``meeting_advice`` (advisor JSON) or ``meeting_advisor_note``.
+        ``meeting_advice`` (generic advisor JSON), optional
+        ``meeting_advisor_people`` (one dossier per name found in the posting),
+        and/or ``meeting_advisor_note``.
 
     GET /tailor
         Serves the HTML form (see templates/tailor.html). The template
@@ -33,7 +36,7 @@ from __future__ import annotations
 import logging
 from datetime import date, datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -44,7 +47,11 @@ from app.jobs.job_outreach_notes import maybe_write_job_outreach_notes
 from app.jobs.preferences import load_preferences, merge_preferences_candidate
 from app.jobs.tailor import tailor_job_from_raw
 from app.scrapers.base import RawJob
-from app.services.outreach_enrich import advise_for_job_context
+from app.services.outreach_enrich import advise_for_job_context, advise_posting_people_dossiers
+from app.services.outreach_posting_people import (
+    extract_people_from_posting_corpus,
+    merge_posting_corpus,
+)
 from app.storage.accounts import get_profile, get_user_by_id
 from app.storage.db import DailyRun, get_conn, insert_daily_run, upsert_job
 
@@ -66,6 +73,9 @@ class ManualTailorRequest(BaseModel):
     #: Call ``MEETING_ADVISOR_URL`` /api/v1/advise with this JD (in addition to outreach when configured).
     meeting_advisor: bool = True
     advisor_subject_name: Optional[str] = None
+    #: Extract named people from the posting text and run advisor once per name (LLM when ``use_llm``).
+    #: If none are found, returns a single generic ``meeting_advice`` block instead.
+    extract_posting_people: bool = True
 
     def has_jd_source(self) -> bool:
         return bool((self.description and self.description.strip()) or (self.url and self.url.strip()))
@@ -85,6 +95,7 @@ class ManualTailorResponse(BaseModel):
     dashboard_url: str
     warning: Optional[str] = None
     meeting_advice: Optional[Dict[str, Any]] = None
+    meeting_advisor_people: Optional[List[Dict[str, Any]]] = None
     meeting_advisor_note: Optional[str] = None
 
 
@@ -137,6 +148,7 @@ def manual_tailor_get() -> JSONResponse:
                 "use_llm": True,
                 "meeting_advisor": True,
                 "advisor_subject_name": None,
+                "extract_posting_people": True,
             },
         }
     )
@@ -234,20 +246,68 @@ def manual_tailor(request: Request, payload: ManualTailorRequest) -> Any:
         logger.exception("manual tailor: outreach notes failed")
 
     meeting_advice = None
+    meeting_people: Optional[List[Dict[str, Any]]] = None
     meeting_note: Optional[str] = None
     if payload.meeting_advisor:
         if not settings.meeting_advisor_configured:
             meeting_note = "MEETING_ADVISOR_URL is not set."
         else:
-            meeting_advice = advise_for_job_context(
-                subject_name=(payload.advisor_subject_name or "").strip(),
-                company=tailored.record.company or "",
-                title=tailored.record.title or "",
-                job_description_excerpt=description,
-                listing_url=tailored.record.url or effective_url,
-            )
-            if meeting_advice is None and not meeting_note:
-                meeting_note = "Meeting advisor returned no response (check server logs)."
+            tried_extract = False
+            people_rows: Optional[List[Dict[str, Any]]] = None
+            if payload.extract_posting_people:
+                tried_extract = True
+                corpus = merge_posting_corpus(
+                    raw,
+                    fetch_apply_page=prefs.outreach_for_job.fetch_apply_page,
+                )
+                extracted = extract_people_from_posting_corpus(
+                    corpus,
+                    (tailored.record.company or "").strip(),
+                    max_people=max(0, prefs.outreach_for_job.max_posting_people),
+                    use_llm=payload.use_llm,
+                )
+                if extracted:
+                    dossiers = advise_posting_people_dossiers(
+                        extracted,
+                        company=tailored.record.company or "",
+                        title=tailored.record.title or "",
+                        job_description_excerpt=description,
+                        listing_url=tailored.record.url or effective_url,
+                        use_llm=payload.use_llm,
+                    )
+                    dumped = [d.model_dump(mode="json") for d in dossiers]
+                    if dumped:
+                        people_rows = dumped
+            if people_rows:
+                meeting_people = people_rows
+                meeting_note = (
+                    f"Named people in posting ({len(meeting_people)}): per-person prep below."
+                )
+            else:
+                meeting_advice = advise_for_job_context(
+                    subject_name=(payload.advisor_subject_name or "").strip(),
+                    company=tailored.record.company or "",
+                    title=tailored.record.title or "",
+                    job_description_excerpt=description,
+                    listing_url=tailored.record.url or effective_url,
+                )
+                if tried_extract and meeting_advice is not None:
+                    meeting_note = (
+                        "No named contacts found in the posting (or LLM extraction off); "
+                        "showing general hiring-team prep."
+                    )
+                elif meeting_advice is None and not meeting_note:
+                    meeting_note = "Meeting advisor returned no response (check server logs)."
+    elif settings.meeting_advisor_configured:
+        meeting_note = (
+            "Meeting advisor was not used — the “Meeting advisor” checkbox was off. "
+            "Enable it above and run again, or open the Advisor page from the header."
+        )
+    else:
+        meeting_note = (
+            "MEETING_ADVISOR_URL is not set. Add e.g. MEETING_ADVISOR_URL=http://127.0.0.1:5003 "
+            "to .env, restart Resume Agent, and run flask_sample run_meeting_advisor.py."
+        )
 
     # The warning the user sees is the fetch-side note (if any) - we did still
     # tailor something, so we shouldn't 4xx, but we want them to know we
@@ -268,6 +328,7 @@ def manual_tailor(request: Request, payload: ManualTailorRequest) -> Any:
         dashboard_url=f"/jobs/today",
         warning=warning,
         meeting_advice=meeting_advice,
+        meeting_advisor_people=meeting_people,
         meeting_advisor_note=meeting_note,
     )
 

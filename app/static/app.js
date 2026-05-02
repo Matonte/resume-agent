@@ -149,7 +149,7 @@
       company: (fd.get("company") || "").toString().trim() || null,
       archetype_override: (fd.get("archetype_override") || "").toString() || null,
       use_llm: !!useLlmEl.checked && !useLlmEl.disabled,
-      meeting_advisor: !!meetingAdvisorEl.checked && !meetingAdvisorEl.disabled,
+      meeting_advisor: !!meetingAdvisorEl.checked,
       advisor_subject_name:
         (fd.get("advisor_subject_name") || "").toString().trim() || null,
     };
@@ -316,7 +316,10 @@
   async function loadAdvisorStatus() {
     try {
       const res = await fetch("/api/health");
-      if (!res.ok) return;
+      if (!res.ok) {
+        advisorStatusEl.textContent = " — health check failed; toggle still works.";
+        return;
+      }
       const h = await res.json();
       const ma = !!h?.loaded_files?.meeting_advisor_configured;
       if (ma) {
@@ -324,12 +327,11 @@
         advisorStatusEl.textContent =
           " — outreach / conversation prep (POSTs to MEETING_ADVISOR_URL).";
       } else {
-        meetingAdvisorEl.checked = false;
-        meetingAdvisorEl.disabled = true;
-        advisorStatusEl.textContent = " — set MEETING_ADVISOR_URL in .env.";
+        advisorStatusEl.textContent =
+          " — MEETING_ADVISOR_URL not loaded; add to .env + restart, or toggle anyway to see errors.";
       }
     } catch (err) {
-      advisorStatusEl.textContent = " — status unavailable.";
+      advisorStatusEl.textContent = " — status unavailable; toggle still works.";
     }
   }
 

@@ -123,6 +123,34 @@ def test_meeting_advisor_standalone_single_mocked(monkeypatch):
     assert data["advice"]["advice"]["opening_move"] == "Brief intro"
 
 
+def test_meeting_advisor_standalone_extract_empty_falls_back_to_generic_advice(monkeypatch):
+    monkeypatch.setattr(app_settings, "meeting_advisor_url", "http://test.local")
+    monkeypatch.setattr(
+        "app.routers.api.extract_people_from_posting_corpus",
+        lambda *a, **k: [],
+    )
+    monkeypatch.setattr(
+        "app.routers.api.advise_for_job_context",
+        lambda **kwargs: {"advice": {"opening_move": "Generic prep"}},
+    )
+    res = client.post(
+        "/api/meeting-advisor",
+        json={
+            "description": "Senior Backend Engineer role with Python and AWS " * 2,
+            "company": "Acme",
+            "use_llm": False,
+        },
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["configured"] is True
+    assert data["advice"]["advice"]["opening_move"] == "Generic prep"
+    assert data.get("meeting_advisor_note")
+    assert "names" in data["meeting_advisor_note"].lower() or "posting" in data[
+        "meeting_advisor_note"
+    ].lower()
+
+
 def test_meeting_advisor_standalone_extract_people_mocked(monkeypatch):
     from app.services.outreach_enrich import OutreachContactDossier, OutreachStakeholderNotes
     from app.services.outreach_posting_people import PostingPerson

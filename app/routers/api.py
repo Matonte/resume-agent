@@ -1,11 +1,10 @@
 import re
 from datetime import datetime
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import Response
 
 from app.models.schemas import (
     AnswerRequest,
@@ -51,8 +50,6 @@ from app.services.resume_tailor import generate_resume_draft
 
 router = APIRouter()
 
-_TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
-
 _SAFE_FILENAME_RE = re.compile(r"[^A-Za-z0-9_.-]+")
 
 
@@ -65,7 +62,8 @@ class MeetingAdvisorBrowserRequest(BaseModel):
     listing_url: str = ""
     subject_name: str = ""
     #: When true, extract named people from the JD (needs LLM) and advise per person.
-    extract_people: bool = False
+    #: If none are found, falls back to one generic ``advice`` block.
+    extract_people: bool = True
     use_llm: bool = True
 
 
@@ -202,19 +200,6 @@ def full_draft(req: FullDraftRequest):
     )
 
 
-@router.get("/meeting-advisor/", response_class=RedirectResponse, include_in_schema=False)
-def meeting_advisor_under_api_trailing_slash() -> RedirectResponse:
-    """`/api/meeting-advisor/` is a common mistaken URL; send users to the HTML UI."""
-    return RedirectResponse(url="/api/meeting-advisor/page", status_code=307)
-
-
-@router.get("/meeting-advisor/page", response_class=HTMLResponse, include_in_schema=False)
-def meeting_advisor_page_under_api() -> HTMLResponse:
-    """Meeting advisor UI under `/api/...` for reverse proxies that only forward `/api/*`."""
-    html = (_TEMPLATES_DIR / "meeting_advisor.html").read_text(encoding="utf-8")
-    return HTMLResponse(content=html)
-
-
 @router.get("/meeting-advisor")
 def meeting_advisor_api_help():
     """Browser GET /api/meeting-advisor shows how to call the JSON endpoint (avoids confusing 405)."""
@@ -229,6 +214,12 @@ def meeting_advisor_api_help():
             "MEETING_ADVISOR_URL is the base of the advisor app (not resume-agent "
             "unless that stack implements the advise route). Example: http://127.0.0.1:5003"
         ),
+        "flask_sample_siblings": {
+            "meeting_advisor": "http://127.0.0.1:5003 (run_meeting_advisor.py)",
+            "whoiswhat": "http://127.0.0.1:5000 (run.py — required for K profile)",
+            "whoishoss": "http://127.0.0.1:5002 (run_whoishoss.py — required for HOSS)",
+        },
+        "diagnostic": "From repo root: python scripts/check_meeting_advisor_stack.py",
     }
 
 
@@ -250,6 +241,7 @@ def meeting_advisor_standalone(body: MeetingAdvisorBrowserRequest):
     ti = (body.title or "").strip()
     listing = (body.listing_url or "").strip()
 
+    tried_extract = False
     if body.extract_people:
         raw = RawJob(
             source="meeting_advisor",
@@ -259,34 +251,26 @@ def meeting_advisor_standalone(body: MeetingAdvisorBrowserRequest):
             jd_full=text,
         )
         corpus = merge_posting_corpus(raw, fetch_apply_page=False)
+        tried_extract = True
         extracted = extract_people_from_posting_corpus(
             corpus,
             co,
             max_people=8,
             use_llm=body.use_llm,
         )
-        if not extracted:
+        if extracted:
+            dossiers = advise_posting_people_dossiers(
+                extracted,
+                company=co,
+                title=ti,
+                job_description_excerpt=text,
+                listing_url=listing,
+                use_llm=body.use_llm,
+            )
             return MeetingAdvisorBrowserResponse(
                 configured=True,
-                meeting_advisor_note=(
-                    "No names extracted from the posting. Use a longer JD, set "
-                    "OPENAI_API_KEY for LLM extraction, or uncheck "
-                    "“Advise each name in posting” and set a focus person."
-                ),
-                people=[],
+                people=[d.model_dump(mode="json") for d in dossiers],
             )
-        dossiers = advise_posting_people_dossiers(
-            extracted,
-            company=co,
-            title=ti,
-            job_description_excerpt=text,
-            listing_url=listing,
-            use_llm=body.use_llm,
-        )
-        return MeetingAdvisorBrowserResponse(
-            configured=True,
-            people=[d.model_dump(mode="json") for d in dossiers],
-        )
 
     advice = advise_for_job_context(
         subject_name=(body.subject_name or "").strip(),
@@ -303,6 +287,11 @@ def meeting_advisor_standalone(body: MeetingAdvisorBrowserRequest):
             "(the process that implements POST …/api/v1/advise), e.g. "
             "http://127.0.0.1:5003 — not resume-agent alone unless you run the "
             "advisor there. Optionally set MEETING_ADVISOR_ADVISE_PATH."
+        )
+    elif tried_extract:
+        note = (
+            "No names extracted from this posting — showing general hiring-team prep. "
+            "(Try a longer JD, enable “Use LLM” with OPENAI_API_KEY, or set a focus person.)"
         )
     return MeetingAdvisorBrowserResponse(
         configured=True, meeting_advisor_note=note, advice=advice

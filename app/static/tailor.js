@@ -57,20 +57,21 @@ async function loadMeetingAdvisorHint() {
   if (!hint || !cb) return;
   try {
     const res = await fetch("/api/health");
-    if (!res.ok) return;
+    if (!res.ok) {
+      hint.textContent = "(health check failed — you can still toggle Meeting advisor)";
+      return;
+    }
     const h = await res.json();
     const ok = !!h?.loaded_files?.meeting_advisor_configured;
     if (ok) {
       hint.textContent = "(MEETING_ADVISOR_URL set)";
       cb.checked = true;
-      cb.disabled = false;
     } else {
-      hint.textContent = "(set MEETING_ADVISOR_URL to enable)";
-      cb.checked = false;
-      cb.disabled = true;
+      hint.textContent =
+        "(MEETING_ADVISOR_URL missing in this server’s .env — set it, restart, or leave on to see the API note after run)";
     }
   } catch (_) {
-    hint.textContent = "(status unavailable)";
+    hint.textContent = "(status unavailable — checkbox still works)";
   }
 }
 
@@ -108,6 +109,7 @@ function showResult(data) {
   if (wrap && noteEl && bodyEl) {
     const note = data.meeting_advisor_note;
     const adv = data.meeting_advice;
+    const people = Array.isArray(data.meeting_advisor_people) ? data.meeting_advisor_people : [];
     if (note) {
       noteEl.textContent = note;
       noteEl.hidden = false;
@@ -115,12 +117,28 @@ function showResult(data) {
       noteEl.textContent = "";
       noteEl.hidden = true;
     }
-    if (adv) {
+    if (people.length) {
+      wrap.hidden = false;
+      bodyEl.innerHTML = people
+        .map((p, i) => {
+          const title = p.title || `Contact ${i + 1}`;
+          const name = String(title).split("—")[0].trim() || `Contact ${i + 1}`;
+          const raw =
+            p.whoiswhat_raw && typeof p.whoiswhat_raw === "object"
+              ? p.whoiswhat_raw.meeting_advisor
+              : null;
+          const block = renderMeetingAdviceBlock(raw || p);
+          return `<article class="meeting-person-block"><h4 class="meeting-person-name">${escapeHtml(name)}</h4>${block}</article>`;
+        })
+        .join("");
+    } else if (adv) {
       wrap.hidden = false;
       bodyEl.innerHTML = renderMeetingAdviceBlock(adv);
     } else {
-      wrap.hidden = !note;
-      bodyEl.innerHTML = note ? "" : "";
+      wrap.hidden = false;
+      bodyEl.innerHTML = note
+        ? ""
+        : '<p class="muted">No meeting advisor output for this run. Turn on <strong>Meeting advisor</strong> above, set <code>MEETING_ADVISOR_URL</code> in <code>.env</code> (e.g. <code>http://127.0.0.1:5003</code>), restart Resume Agent, and ensure flask_sample <code>run_meeting_advisor.py</code> is listening.</p>';
     }
   }
 }

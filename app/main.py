@@ -40,6 +40,19 @@ app.include_router(manual_router)
 # mounted app cannot take precedence in any edge cases (see FastAPI "Mount"
 # docs: mount sub-apps last).
 
+# Under `/api/...` so reverse proxies that only forward `/api/*` still serve the
+# advisor UI. Declared here (not only on the APIRouter) so the route cannot be
+# lost to import/deploy drift relative to `GET /` and other page handlers.
+@app.get("/api/meeting-advisor/", response_class=RedirectResponse)
+def api_meeting_advisor_trailing_slash() -> RedirectResponse:
+    return RedirectResponse(url="/api/meeting-advisor/page", status_code=307)
+
+
+@app.get("/api/meeting-advisor/page", response_class=HTMLResponse)
+def api_meeting_advisor_page() -> HTMLResponse:
+    html = (TEMPLATES_DIR / "meeting_advisor.html").read_text(encoding="utf-8")
+    return HTMLResponse(content=html)
+
 
 @app.get("/", response_class=HTMLResponse)
 def review_page() -> HTMLResponse:

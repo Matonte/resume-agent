@@ -91,6 +91,10 @@ def test_manual_tailor_description_only_path(client, monkeypatch):
 def test_manual_tailor_meeting_advice_in_response(client, monkeypatch):
     monkeypatch.setattr(app_settings, "meeting_advisor_url", "http://test.local")
     monkeypatch.setattr(
+        "app.routers.manual.extract_people_from_posting_corpus",
+        lambda *a, **k: [],
+    )
+    monkeypatch.setattr(
         "app.routers.manual.advise_for_job_context",
         lambda **kwargs: {"advice": {"opening_move": "Hello", "do": ["Be brief"]}},
     )
@@ -109,7 +113,49 @@ def test_manual_tailor_meeting_advice_in_response(client, monkeypatch):
     assert data["meeting_advice"] and data["meeting_advice"]["advice"]["opening_move"] == "Hello"
 
 
-def test_manual_tailor_rejects_empty_body(client):
+def test_manual_tailor_meeting_advisor_per_person(client, monkeypatch):
+    from app.services.outreach_enrich import OutreachContactDossier, OutreachStakeholderNotes
+    from app.services.outreach_posting_people import PostingPerson
+
+    monkeypatch.setattr(app_settings, "meeting_advisor_url", "http://test.local")
+    monkeypatch.setattr(
+        "app.routers.manual.extract_people_from_posting_corpus",
+        lambda *a, **k: [
+            PostingPerson(name="Riley Nova", role_hint="Talent Partner", evidence="Riley Nova")
+        ],
+    )
+
+    def _fake_dossiers(people, **kwargs):
+        return [
+            OutreachContactDossier(
+                title="Riley Nova — Stripe",
+                url="x",
+                snippet="s",
+                inferred_primary_role="recruiter",
+                recruiter=OutreachStakeholderNotes(),
+                hiring_manager=OutreachStakeholderNotes(),
+                combined_opening="Hi",
+                whoiswhat_raw={"meeting_advisor": {"advice": {"opening_move": "To Riley"}}},
+            )
+        ]
+
+    monkeypatch.setattr("app.routers.manual.advise_posting_people_dossiers", _fake_dossiers)
+    resp = client.post(
+        "/api/manual-tailor",
+        json={
+            "description": _JD_TEXT,
+            "company": "Stripe",
+            "title": "Senior Backend Engineer",
+            "use_llm": False,
+            "meeting_advisor": True,
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data.get("meeting_advice") is None
+    assert len(data.get("meeting_advisor_people") or []) == 1
+    row = data["meeting_advisor_people"][0]
+    assert row["whoiswhat_raw"]["meeting_advisor"]["advice"]["opening_move"] == "To Riley"
     resp = client.post("/api/manual-tailor", json={})
     assert resp.status_code == 400
     assert "url" in resp.json()["detail"] or "description" in resp.json()["detail"]

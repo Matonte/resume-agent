@@ -1,4 +1,6 @@
 # Start the FastAPI app locally (no Docker, no AWS).
+# If URLs 404 but tests pass, an old server may still own port 8000 — run:
+#   powershell -ExecutionPolicy Bypass -File .\scripts\kill_port.ps1 8000
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
