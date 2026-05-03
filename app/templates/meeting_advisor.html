@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="/static/styles.css" />
   <link rel="stylesheet" href="/static/jobs_today.css" />
   <link rel="stylesheet" href="/static/tailor.css" />
+  <link rel="stylesheet" href="/static/advisor.css" />
 </head>
 <body>
   <main class="shell">
@@ -17,10 +18,11 @@
       <div>
         <h1>Meeting advisor <span class="wordmark-tag" aria-hidden="true">Prep</span></h1>
         <p class="subtitle">
-          Paste a job description and get conversation prep from your
-          <code>MEETING_ADVISOR_URL</code> service (<code>POST …/api/v1/advise</code>).
-          Optional: focus on one contact name, or advise for <strong>each name</strong>
-          the model finds in the posting (uses OpenAI when “Use LLM” is on).
+          Paste a job description and get structured conversation prep. Resume Agent
+          calls your advisor service at <code>MEETING_ADVISOR_URL</code>
+          (<code>POST …/api/v1/advise</code>) and renders tactics below. Optionally
+          focus one contact, or run advice for <strong>each name</strong> found in the
+          posting (OpenAI when “Use LLM” is on).
         </p>
       </div>
       <div class="links">
@@ -80,12 +82,19 @@
       <div id="status" class="status" hidden></div>
     </section>
 
-    <section id="result-panel" class="panel result-panel" hidden>
-      <h2>Result</h2>
-      <pre id="result-json" class="jd-preview" style="white-space: pre-wrap; max-height: 70vh; overflow: auto;"></pre>
-      <p class="hint" id="download-hint" hidden>
-        <button type="button" class="secondary" id="download-json">Download JSON</button>
-      </p>
+    <section id="result-panel" class="panel result-panel advisor-results" hidden>
+      <div class="advisor-results-head">
+        <h2>Result</h2>
+        <p class="hint" id="download-hint" hidden>
+          <button type="button" class="secondary" id="download-json">Download JSON</button>
+        </p>
+      </div>
+      <p id="advisor-note" class="advisor-note" hidden></p>
+      <div id="advisor-visual" class="advisor-visual"></div>
+      <details class="advisor-raw panel inner-panel">
+        <summary>Raw JSON</summary>
+        <pre id="result-json" class="jd-preview advisor-json-pre"></pre>
+      </details>
     </section>
   </main>
   <script src="/static/onboarding_banner.js"></script>

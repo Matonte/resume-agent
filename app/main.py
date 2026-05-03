@@ -19,6 +19,16 @@ BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 TEMPLATES_DIR = BASE_DIR / "templates"
 
+
+def _meeting_advisor_page_response():
+    """Redirect only when MEETING_ADVISOR_UI_URL is set; else embedded advisor UI."""
+    target = settings.meeting_advisor_browser_redirect_url
+    if target:
+        return RedirectResponse(url=target, status_code=307)
+    html = (TEMPLATES_DIR / "meeting_advisor.html").read_text(encoding="utf-8")
+    return HTMLResponse(content=html)
+
+
 app = FastAPI(title="Resume Agent Starter", version="0.4.0")
 
 # Last-added middleware runs first on the request. Session must run before
@@ -49,13 +59,15 @@ app.include_router(manual_router)
 # lost to import/deploy drift relative to `GET /` and other page handlers.
 @app.get("/api/meeting-advisor/", response_class=RedirectResponse)
 def api_meeting_advisor_trailing_slash() -> RedirectResponse:
+    target = settings.meeting_advisor_browser_redirect_url
+    if target:
+        return RedirectResponse(url=target, status_code=307)
     return RedirectResponse(url="/api/meeting-advisor/page", status_code=307)
 
 
-@app.get("/api/meeting-advisor/page", response_class=HTMLResponse)
-def api_meeting_advisor_page() -> HTMLResponse:
-    html = (TEMPLATES_DIR / "meeting_advisor.html").read_text(encoding="utf-8")
-    return HTMLResponse(content=html)
+@app.get("/api/meeting-advisor/page")
+def api_meeting_advisor_page():
+    return _meeting_advisor_page_response()
 
 
 @app.get("/onboarding", response_class=HTMLResponse)
@@ -90,25 +102,29 @@ def account_page() -> HTMLResponse:
 
 @app.get("/meeting-advisor/", response_class=RedirectResponse)
 def meeting_advisor_page_trailing_slash() -> RedirectResponse:
+    target = settings.meeting_advisor_browser_redirect_url
+    if target:
+        return RedirectResponse(url=target, status_code=307)
     return RedirectResponse(url="/api/meeting-advisor/page", status_code=307)
 
 
 @app.get("/advisor", response_class=RedirectResponse)
 def advisor_short_link() -> RedirectResponse:
+    target = settings.meeting_advisor_browser_redirect_url
+    if target:
+        return RedirectResponse(url=target, status_code=307)
     return RedirectResponse(url="/api/meeting-advisor/page", status_code=307)
 
 
-@app.get("/meeting-advisor", response_class=HTMLResponse)
-def meeting_advisor_page() -> HTMLResponse:
-    html = (TEMPLATES_DIR / "meeting_advisor.html").read_text(encoding="utf-8")
-    return HTMLResponse(content=html)
+@app.get("/meeting-advisor")
+def meeting_advisor_page():
+    return _meeting_advisor_page_response()
 
 
-@app.get("/meeting-advisor/page", response_class=HTMLResponse)
-def meeting_advisor_page_nested_path() -> HTMLResponse:
-    """Same template as `/meeting-advisor` for routers/proxies that expect a `/page` segment."""
-    html = (TEMPLATES_DIR / "meeting_advisor.html").read_text(encoding="utf-8")
-    return HTMLResponse(content=html)
+@app.get("/meeting-advisor/page")
+def meeting_advisor_page_nested_path():
+    """Same as `/meeting-advisor` for paths that expect a `/page` segment."""
+    return _meeting_advisor_page_response()
 
 
 @app.get("/manual-tailor")

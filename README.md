@@ -74,7 +74,7 @@ Use this checklist when onboarding someone to the repo (local-only is enough).
 | Jobs today | http://127.0.0.1:8000/jobs/today |
 | Account (register / login) | http://127.0.0.1:8000/account |
 | First-time setup (résumé + job samples) | http://127.0.0.1:8000/onboarding |
-| Meeting advisor (standalone) | http://127.0.0.1:8000/meeting-advisor |
+| Meeting advisor (prep UI; set `MEETING_ADVISOR_URL` so Run advisor can POST to your advisor app) | http://127.0.0.1:8000/meeting-advisor |
 | OpenAPI | http://127.0.0.1:8000/docs |
 | Health | http://127.0.0.1:8000/api/health |
 
@@ -99,6 +99,7 @@ Copy from [`.env.example`](.env.example). Commonly used:
 | `OPENAI_API_KEY` | LLM polish, posting-people extraction, onboarding profile generation, outreach enrichment |
 | `MODEL_NAME` | Chat model id (default in `.env.example`) |
 | `MEETING_ADVISOR_URL` | Base URL of the **advisor app** only (default POST path `/api/v1/advise`). Use the advisor process, e.g. `http://127.0.0.1:5003` — **not** resume-agent’s URL unless that stack serves the advise route |
+| `MEETING_ADVISOR_UI_URL` | Optional; if set, GET `/meeting-advisor` redirects the browser here instead of the embedded page. API POSTs still use `MEETING_ADVISOR_URL` |
 | `MEETING_ADVISOR_ADVISE_PATH` | Optional; default `/api/v1/advise` if your advisor uses a different path |
 | `GOOGLE_CSE_API_KEY` + `GOOGLE_CSE_CX` | Web search for outreach (optional; can use Bing instead) |
 | `BING_SEARCH_KEY` | Alternative/additional web search |

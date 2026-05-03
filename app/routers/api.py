@@ -89,9 +89,7 @@ def _safe_slug(raw: str | None, fallback: str) -> str:
 
 @router.get("/health", response_model=HealthResponse)
 def health():
-    return HealthResponse(
-        status="ok",
-        loaded_files={
+    mf = {
             "truth_model_roles": len(load_truth_model()["roles"]),
             "archetypes": len(load_archetypes()),
             "stories": len(load_story_bank()),
@@ -101,12 +99,17 @@ def health():
             "llm_configured": llm_is_available(),
             "meeting_advisor_configured": settings.meeting_advisor_configured,
             "meeting_advisor_post_url": settings.meeting_advisor_advise_url or None,
+            "meeting_advisor_browser_url": settings.meeting_advisor_browser_redirect_url
+            or None,
             "meeting_advisor_pages": [
                 "/api/meeting-advisor/page",
                 "/meeting-advisor",
                 "/advisor",
             ],
-        },
+        }
+    return HealthResponse(
+        status="ok",
+        loaded_files=mf,
     )
 
 
@@ -207,9 +210,17 @@ def full_draft(request: Request, req: FullDraftRequest):
 @router.get("/meeting-advisor")
 def meeting_advisor_api_help():
     """Browser GET /api/meeting-advisor shows how to call the JSON endpoint (avoids confusing 405)."""
+    ext = settings.meeting_advisor_browser_redirect_url
     return {
         "method": "POST",
-        "ui": "/api/meeting-advisor/page",
+        "ui": ext or "/meeting-advisor",
+        "ui_note": (
+            "MEETING_ADVISOR_UI_URL is set — GET /meeting-advisor sends the browser "
+            "to that URL."
+            if ext
+            else "Embedded advisor at /meeting-advisor. Set MEETING_ADVISOR_UI_URL only "
+            "to forward the browser to another host."
+        ),
         "ui_root_path": "/meeting-advisor",
         "aliases": ["/advisor", "/meeting-advisor/"],
         "meeting_advisor_configured": settings.meeting_advisor_configured,

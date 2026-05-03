@@ -193,13 +193,17 @@ def test_meeting_advisor_standalone_extract_people_mocked(monkeypatch):
     assert data["people"][0]["inferred_primary_role"] == "recruiter"
 
 
-def test_meeting_advisor_page_loads():
+def test_meeting_advisor_page_loads(monkeypatch):
+    monkeypatch.setattr(app_settings, "meeting_advisor_url", "")
+    monkeypatch.setattr(app_settings, "meeting_advisor_ui_url", "")
     res = client.get("/meeting-advisor")
     assert res.status_code == 200
     assert "Meeting advisor" in res.text
 
 
-def test_meeting_advisor_aliases_redirect():
+def test_meeting_advisor_aliases_redirect_to_embedded_page(monkeypatch):
+    monkeypatch.setattr(app_settings, "meeting_advisor_url", "")
+    monkeypatch.setattr(app_settings, "meeting_advisor_ui_url", "")
     r = client.get("/advisor", follow_redirects=False)
     assert r.status_code == 307
     assert r.headers.get("location") == "/api/meeting-advisor/page"
@@ -208,30 +212,81 @@ def test_meeting_advisor_aliases_redirect():
     assert r2.headers.get("location") == "/api/meeting-advisor/page"
 
 
-def test_meeting_advisor_nested_page_loads():
+def test_meeting_advisor_serves_embedded_when_api_configured_without_ui_url(
+    monkeypatch,
+):
+    monkeypatch.setattr(app_settings, "meeting_advisor_url", "http://127.0.0.1:5003")
+    monkeypatch.setattr(app_settings, "meeting_advisor_ui_url", "")
+    res = client.get("/meeting-advisor", follow_redirects=False)
+    assert res.status_code == 200
+    assert "Meeting advisor" in res.text
+
+
+def test_meeting_advisor_standalone_honors_meeting_advisor_ui_url(monkeypatch):
+    monkeypatch.setattr(app_settings, "meeting_advisor_url", "http://api.example:5003")
+    monkeypatch.setattr(app_settings, "meeting_advisor_ui_url", "http://ui.example/advisor/")
+    r = client.get("/advisor", follow_redirects=False)
+    assert r.headers.get("location") == "http://ui.example/advisor"
+
+
+def test_meeting_advisor_nested_page_loads(monkeypatch):
+    monkeypatch.setattr(app_settings, "meeting_advisor_url", "")
+    monkeypatch.setattr(app_settings, "meeting_advisor_ui_url", "")
     res = client.get("/meeting-advisor/page")
     assert res.status_code == 200
     assert "Meeting advisor" in res.text
 
 
-def test_api_meeting_advisor_trailing_slash_redirects():
+def test_api_meeting_advisor_trailing_slash_redirects_embedded(monkeypatch):
+    monkeypatch.setattr(app_settings, "meeting_advisor_url", "")
+    monkeypatch.setattr(app_settings, "meeting_advisor_ui_url", "")
     r = client.get("/api/meeting-advisor/", follow_redirects=False)
     assert r.status_code == 307
     assert r.headers.get("location") == "/api/meeting-advisor/page"
 
 
-def test_meeting_advisor_page_under_api_loads():
+def test_api_meeting_advisor_trailing_slash_redirects_to_page_when_api_configured(
+    monkeypatch,
+):
+    monkeypatch.setattr(app_settings, "meeting_advisor_url", "http://127.0.0.1:5003")
+    monkeypatch.setattr(app_settings, "meeting_advisor_ui_url", "")
+    r = client.get("/api/meeting-advisor/", follow_redirects=False)
+    assert r.status_code == 307
+    assert r.headers.get("location") == "/api/meeting-advisor/page"
+
+
+def test_meeting_advisor_page_under_api_loads(monkeypatch):
+    monkeypatch.setattr(app_settings, "meeting_advisor_url", "")
+    monkeypatch.setattr(app_settings, "meeting_advisor_ui_url", "")
     res = client.get("/api/meeting-advisor/page")
     assert res.status_code == 200
     assert "Meeting advisor" in res.text
 
 
-def test_api_meeting_advisor_get_help():
+def test_api_meeting_advisor_get_help(monkeypatch):
+    monkeypatch.setattr(app_settings, "meeting_advisor_url", "")
+    monkeypatch.setattr(app_settings, "meeting_advisor_ui_url", "")
     res = client.get("/api/meeting-advisor")
     assert res.status_code == 200
     data = res.json()
     assert data["method"] == "POST"
-    assert data["ui"] == "/api/meeting-advisor/page"
+    assert data["ui"] == "/meeting-advisor"
+
+
+def test_api_meeting_advisor_get_help_embedded_ui_when_only_api_configured(monkeypatch):
+    monkeypatch.setattr(app_settings, "meeting_advisor_url", "http://flask.local:5003")
+    monkeypatch.setattr(app_settings, "meeting_advisor_ui_url", "")
+    res = client.get("/api/meeting-advisor")
+    assert res.status_code == 200
+    assert res.json()["ui"] == "/meeting-advisor"
+
+
+def test_api_meeting_advisor_get_help_external_ui_when_ui_url_set(monkeypatch):
+    monkeypatch.setattr(app_settings, "meeting_advisor_url", "http://api.example:5003")
+    monkeypatch.setattr(app_settings, "meeting_advisor_ui_url", "http://ui.example/advisor/")
+    res = client.get("/api/meeting-advisor")
+    assert res.status_code == 200
+    assert res.json()["ui"] == "http://ui.example/advisor"
 
 
 def test_generate_resume_download():

@@ -101,6 +101,11 @@ class Settings(BaseModel):
     # separate port, e.g. flask_sample on :5003), NOT resume-agent's URL unless
     # you mount that route on the same server.
     meeting_advisor_url: str = _strip(os.getenv("MEETING_ADVISOR_URL"))
+    #: Optional **browser redirect** for Advisor links only. When set, GET /meeting-advisor
+    #: (and aliases) send the browser to this URL instead of serving resume-agent HTML.
+    #: When unset, the embedded advisor page is always served; API POSTs still use
+    #: ``meeting_advisor_url`` + advise path.
+    meeting_advisor_ui_url: str = _strip(os.getenv("MEETING_ADVISOR_UI_URL"))
     #: Path appended to base (leading slash). Override if your advisor uses a different route.
     meeting_advisor_advise_path: str = (
         _strip(os.getenv("MEETING_ADVISOR_ADVISE_PATH")) or "/api/v1/advise"
@@ -151,6 +156,15 @@ class Settings(BaseModel):
     @property
     def meeting_advisor_configured(self) -> bool:
         return bool(self.meeting_advisor_url)
+
+    @property
+    def meeting_advisor_browser_redirect_url(self) -> str:
+        """Optional external URL for GET /meeting-advisor when set via ``MEETING_ADVISOR_UI_URL``.
+
+        Empty string means serve the embedded advisor page (whether or not the API
+        base ``MEETING_ADVISOR_URL`` is configured).
+        """
+        return (self.meeting_advisor_ui_url or "").strip().rstrip("/")
 
     @property
     def outputs_path(self) -> Path:

@@ -35,6 +35,12 @@ def main() -> int:
         return 1
 
     print(f"Resume-agent posts to: {advise!r}")
+    browser = (settings.meeting_advisor_browser_redirect_url or "").strip()
+    if browser:
+        print(
+            "Resume-agent browser (GET /meeting-advisor): redirects to external UI "
+            f"{browser!r} — MEETING_ADVISOR_UI_URL is set."
+        )
 
     timeout = httpx.Timeout(30.0, connect=5.0)
     with httpx.Client(timeout=timeout) as client:
