@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import shutil
 import sqlite3
@@ -56,6 +57,8 @@ class User:
     password_hash: str
     active_profile_id: Optional[int]
     created_at: datetime
+    requires_onboarding: bool = False
+    onboarding_completed_at: Optional[datetime] = None
 
 
 @dataclass
@@ -79,15 +82,47 @@ class ResumeProfile:
 
 
 def _row_user(row: sqlite3.Row) -> User:
+    def _bool_col(name: str, default: bool = False) -> bool:
+        try:
+            return bool(row[name])
+        except (KeyError, IndexError):
+            return default
+
+    def _opt_ts(name: str) -> Optional[datetime]:
+        try:
+            raw = row[name]
+        except (KeyError, IndexError):
+            return None
+        if not raw:
+            return None
+        s = str(raw).strip()
+        if " " in s and "T" not in s:
+            s = s.replace(" ", "T", 1)
+        try:
+            return datetime.fromisoformat(s)
+        except ValueError:
+            return None
+
+    def _parse_dt(raw: object) -> datetime:
+        if not raw:
+            return datetime.utcnow()
+        s = str(raw).strip()
+        if " " in s and "T" not in s:
+            s = s.replace(" ", "T", 1)
+        try:
+            return datetime.fromisoformat(s)
+        except ValueError:
+            return datetime.utcnow()
+
     return User(
         id=row["id"],
         email=row["email"],
         display_name=row["display_name"] or "",
         password_hash=row["password_hash"] or "",
         active_profile_id=row["active_profile_id"],
-        created_at=datetime.fromisoformat(row["created_at"])
-        if row["created_at"]
-        else datetime.utcnow(),
+        created_at=_parse_dt(row["created_at"]),
+        requires_onboarding=_bool_col("requires_onboarding", False),
+        onboarding_completed_at=_opt_ts("onboarding_completed_at"),
     )
 
 
@@ -160,8 +195,10 @@ def create_user_with_profile(
     """Register a new account: user row + first on-disk profile from templates."""
     cur = conn.execute(
         """
-        INSERT INTO users (email, password_hash, display_name, active_profile_id)
-        VALUES (?, ?, ?, NULL)
+        INSERT INTO users (
+            email, password_hash, display_name, active_profile_id, requires_onboarding
+        )
+        VALUES (?, ?, ?, NULL, 1)
         """,
         (email.strip().lower(), password_hash, display_name.strip()),
     )
@@ -249,6 +286,72 @@ def update_profile_candidate(
     conn.commit()
 
 
+def user_must_complete_onboarding(u: User, *, default_user_id: int = 1) -> bool:
+    """New accounts must finish the onboarding wizard before using the app."""
+    if u.id == default_user_id:
+        return False
+    if not u.requires_onboarding:
+        return False
+    return u.onboarding_completed_at is None
+
+
+def onboarding_upload_rel_prefix(user_id: int, profile_id: int) -> str:
+    return str(Path(USER_PROFILES_ROOT) / str(user_id) / str(profile_id) / "onboarding_uploads")
+
+
+def ensure_onboarding_upload_dir(user_id: int, profile_id: int) -> Path:
+    base = settings.outputs_path / onboarding_upload_rel_prefix(user_id, profile_id)
+    base.mkdir(parents=True, exist_ok=True)
+    return base
+
+
+def insert_onboarding_asset(
+    conn: sqlite3.Connection,
+    *,
+    user_id: int,
+    profile_id: int,
+    kind: str,
+    rel_path: str,
+    original_name: str = "",
+    byte_size: int = 0,
+    extra_json: Optional[dict] = None,
+) -> int:
+    cur = conn.execute(
+        """
+        INSERT INTO user_onboarding_assets (
+            user_id, profile_id, kind, rel_path, original_name, byte_size, extra_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            user_id,
+            profile_id,
+            kind,
+            rel_path,
+            original_name,
+            byte_size,
+            json.dumps(extra_json or {}),
+        ),
+    )
+    conn.commit()
+    return int(cur.lastrowid)
+
+
+def count_onboarding_assets(conn: sqlite3.Connection, user_id: int, kind: str) -> int:
+    row = conn.execute(
+        "SELECT COUNT(*) FROM user_onboarding_assets WHERE user_id = ? AND kind = ?",
+        (user_id, kind),
+    ).fetchone()
+    return int(row[0]) if row and row[0] is not None else 0
+
+
+def mark_onboarding_complete(conn: sqlite3.Connection, user_id: int) -> None:
+    conn.execute(
+        "UPDATE users SET onboarding_completed_at = datetime('now') WHERE id = ?",
+        (user_id,),
+    )
+    conn.commit()
+
+
 __all__ = [
     "PROFILE_TEMPLATE_FILES",
     "USER_PROFILES_ROOT",
@@ -256,14 +359,20 @@ __all__ = [
     "User",
     "create_extra_profile",
     "create_user_with_profile",
+    "ensure_onboarding_upload_dir",
     "get_profile",
     "get_profile_for_user",
     "get_user_by_email",
     "get_user_by_id",
+    "insert_onboarding_asset",
     "list_profiles",
+    "onboarding_upload_rel_prefix",
     "profile_disk_dir",
+    "count_onboarding_assets",
+    "mark_onboarding_complete",
     "seed_profile_from_repo_template",
     "set_active_profile",
     "slugify",
     "update_profile_candidate",
+    "user_must_complete_onboarding",
 ]

@@ -38,6 +38,16 @@ class Settings(BaseModel):
     # Anonymous / CLI default workspace user (built-in repo `data/`).
     default_user_id: int = int(_strip(os.getenv("DEFAULT_USER_ID")) or "1")
 
+    # New-account wizard (résumé + job samples → profile JSON). Tests may set
+    # ONBOARDING_ALLOW_FINISH_WITHOUT_LLM=1 to skip the LLM merge step.
+    onboarding_min_resumes: int = int(_strip(os.getenv("ONBOARDING_MIN_RESUMES")) or "1")
+    onboarding_min_job_samples: int = int(
+        _strip(os.getenv("ONBOARDING_MIN_JOB_SAMPLES")) or "3"
+    )
+    onboarding_allow_finish_without_llm: bool = _strip(
+        os.getenv("ONBOARDING_ALLOW_FINISH_WITHOUT_LLM")
+    ).lower() in ("1", "true", "yes")
+
     # Scheduled daily_run uses this account unless overridden on the CLI.
     daily_run_user_id: int = int(_strip(os.getenv("DAILY_RUN_USER_ID")) or "1")
     playwright_profiles_dir: str = (

@@ -362,6 +362,21 @@ button.secondary:hover {
   font-family: var(--font-mono);
 }
 
+/* Used by onboarding banner on pages that do not load tailor.css */
+main .status.warn {
+  display: block;
+  padding: 10px 14px;
+  border-radius: var(--radius-inner);
+  border: 1px solid var(--warn);
+  background: rgba(255, 208, 96, 0.08);
+  color: #ffd060;
+  font-size: 0.82rem;
+}
+
+main .status.warn a {
+  color: #ffea9a;
+}
+
 .grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

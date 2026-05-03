@@ -2,9 +2,11 @@ import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from fastapi.responses import Response
+
+from app.auth.onboarding_guard import raise_if_onboarding_incomplete
 
 from app.models.schemas import (
     AnswerRequest,
@@ -119,7 +121,8 @@ def classify(job: JobInput):
 
 
 @router.post("/draft-resume", response_model=ResumeDraftResponse)
-def draft_resume(req: ResumeDraftRequest):
+def draft_resume(request: Request, req: ResumeDraftRequest):
+    raise_if_onboarding_incomplete(request)
     drafted = generate_resume_draft(
         req.job_description, req.archetype_id, use_llm=req.use_llm
     )
@@ -161,7 +164,8 @@ def outreach_enrich(req: OutreachEnrichRequest):
 
 
 @router.post("/full-draft", response_model=FullDraftResponse)
-def full_draft(req: FullDraftRequest):
+def full_draft(request: Request, req: FullDraftRequest):
+    raise_if_onboarding_incomplete(request)
     classification = classify_job(req.description)
     archetype_id = req.archetype_override or classification.archetype_id
 
@@ -299,7 +303,8 @@ def meeting_advisor_standalone(body: MeetingAdvisorBrowserRequest):
 
 
 @router.post("/generate-resume")
-def generate_resume(req: GenerateResumeRequest):
+def generate_resume(request: Request, req: GenerateResumeRequest):
+    raise_if_onboarding_incomplete(request)
     description = (req.description or "").strip()
     if not description:
         raise HTTPException(status_code=400, detail="description is required")

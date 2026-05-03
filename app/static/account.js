@@ -98,6 +98,10 @@
       setAuthStatus(data.detail || String(res.status), "error");
       return;
     }
+    if (data.user && data.user.needs_onboarding) {
+      window.location.href = "/onboarding";
+      return;
+    }
     setAuthStatus("Registered and signed in.", "success");
     await refreshMe();
   });
@@ -117,6 +121,10 @@
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       setAuthStatus(data.detail || String(res.status), "error");
+      return;
+    }
+    if (data.user && data.user.needs_onboarding) {
+      window.location.href = "/onboarding";
       return;
     }
     setAuthStatus("Signed in.", "success");

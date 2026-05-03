@@ -6,11 +6,13 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import settings
+from app.middleware.onboarding_gate import OnboardingGateMiddleware
 from app.middleware.profile_bind import ProfileDataMiddleware
 from app.routers.api import router
 from app.routers.auth_api import router as auth_router
 from app.routers.jobs import router as jobs_router
 from app.routers.manual import router as manual_router
+from app.routers.onboarding_api import router as onboarding_router
 from app.routers.profiles_api import router as profiles_router
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -21,6 +23,7 @@ app = FastAPI(title="Resume Agent Starter", version="0.4.0")
 
 # Last-added middleware runs first on the request. Session must run before
 # ProfileDataMiddleware reads request.session.
+app.add_middleware(OnboardingGateMiddleware)
 app.add_middleware(ProfileDataMiddleware)
 app.add_middleware(
     SessionMiddleware,
@@ -30,6 +33,7 @@ app.add_middleware(
     same_site="lax",
 )
 
+app.include_router(onboarding_router)
 app.include_router(router, prefix="/api")
 app.include_router(auth_router)
 app.include_router(profiles_router)
@@ -51,6 +55,12 @@ def api_meeting_advisor_trailing_slash() -> RedirectResponse:
 @app.get("/api/meeting-advisor/page", response_class=HTMLResponse)
 def api_meeting_advisor_page() -> HTMLResponse:
     html = (TEMPLATES_DIR / "meeting_advisor.html").read_text(encoding="utf-8")
+    return HTMLResponse(content=html)
+
+
+@app.get("/onboarding", response_class=HTMLResponse)
+def onboarding_page() -> HTMLResponse:
+    html = (TEMPLATES_DIR / "onboarding.html").read_text(encoding="utf-8")
     return HTMLResponse(content=html)
 
 

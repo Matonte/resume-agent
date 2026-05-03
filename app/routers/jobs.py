@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
 
+from app.auth.onboarding_guard import raise_if_onboarding_incomplete
 from app.config import settings
 from app.jobs.job_outreach_notes import outreach_badge_for_job
 from app.storage.db import (
@@ -160,6 +161,7 @@ def mark_submitted(request: Request, job_id: str) -> JSONResponse:
 
 @router.post("/{job_id}/prepare-apply")
 def prepare_apply(request: Request, job_id: str) -> JSONResponse:
+    raise_if_onboarding_incomplete(request)
     uid = _session_uid(request)
     with get_conn() as conn:
         job = load_job(conn, job_id, user_id=uid)
@@ -182,6 +184,7 @@ def prepare_apply(request: Request, job_id: str) -> JSONResponse:
 
 
 def _transition(request: Request, job_id: str, status: str) -> JSONResponse:
+    raise_if_onboarding_incomplete(request)
     uid = _session_uid(request)
     with get_conn() as conn:
         job = load_job(conn, job_id, user_id=uid)

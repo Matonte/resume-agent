@@ -10,11 +10,13 @@ from pydantic import BaseModel, EmailStr, Field
 
 from app.auth.passwords import hash_password, verify_password
 from app.config import settings
+from app.config import settings
 from app.storage.accounts import (
     User,
     get_profile,
     get_user_by_email,
     get_user_by_id,
+    user_must_complete_onboarding,
 )
 from app.storage.db import get_conn
 
@@ -50,6 +52,13 @@ def _public_user(u: User) -> dict[str, Any]:
         "display_name": u.display_name,
         "active_profile_id": u.active_profile_id,
         "active_profile_name": prof.name if prof else None,
+        "requires_onboarding": u.requires_onboarding,
+        "onboarding_completed_at": (
+            u.onboarding_completed_at.isoformat() if u.onboarding_completed_at else None
+        ),
+        "needs_onboarding": user_must_complete_onboarding(
+            u, default_user_id=settings.default_user_id
+        ),
     }
 
 

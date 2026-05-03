@@ -145,7 +145,9 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash       TEXT NOT NULL DEFAULT '',
     display_name        TEXT NOT NULL DEFAULT '',
     active_profile_id   INTEGER,
-    created_at          TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+    requires_onboarding INTEGER NOT NULL DEFAULT 0,
+    onboarding_completed_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS resume_profiles (
@@ -162,6 +164,21 @@ CREATE TABLE IF NOT EXISTS resume_profiles (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_profiles_user ON resume_profiles(user_id);
+
+CREATE TABLE IF NOT EXISTS user_onboarding_assets (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL,
+    profile_id      INTEGER NOT NULL,
+    kind            TEXT NOT NULL,
+    rel_path        TEXT NOT NULL,
+    original_name   TEXT NOT NULL DEFAULT '',
+    byte_size       INTEGER NOT NULL DEFAULT 0,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    extra_json      TEXT NOT NULL DEFAULT '{}',
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (profile_id) REFERENCES resume_profiles(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_onboarding_assets_user ON user_onboarding_assets(user_id);
 """
 
 
@@ -190,13 +207,50 @@ def _migrate(conn: sqlite3.Connection) -> None:
     if jcols_apply and "apply_url" not in jcols_apply:
         conn.execute("ALTER TABLE jobs ADD COLUMN apply_url TEXT")
 
+    ucols = _table_columns(conn, "users")
+    if ucols:
+        if "requires_onboarding" not in ucols:
+            conn.execute(
+                "ALTER TABLE users ADD COLUMN requires_onboarding INTEGER NOT NULL DEFAULT 0"
+            )
+        if "onboarding_completed_at" not in ucols:
+            conn.execute("ALTER TABLE users ADD COLUMN onboarding_completed_at TEXT")
+
+    if not _table_columns(conn, "user_onboarding_assets"):
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS user_onboarding_assets (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id         INTEGER NOT NULL,
+                profile_id      INTEGER NOT NULL,
+                kind            TEXT NOT NULL,
+                rel_path        TEXT NOT NULL,
+                original_name   TEXT NOT NULL DEFAULT '',
+                byte_size       INTEGER NOT NULL DEFAULT 0,
+                created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+                extra_json      TEXT NOT NULL DEFAULT '{}',
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (profile_id) REFERENCES resume_profiles(id) ON DELETE CASCADE
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_onboarding_assets_user ON user_onboarding_assets(user_id)"
+        )
+
     if _table_columns(conn, "users") and _table_columns(conn, "resume_profiles"):
         row = conn.execute("SELECT COUNT(*) FROM users").fetchone()
         if row and row[0] == 0:
             conn.execute(
                 """
-                INSERT INTO users (id, email, password_hash, display_name, active_profile_id)
-                VALUES (1, 'workspace@local', '', 'Default workspace', NULL)
+                INSERT INTO users (
+                    id, email, password_hash, display_name, active_profile_id,
+                    requires_onboarding, onboarding_completed_at
+                )
+                VALUES (
+                    1, 'workspace@local', '', 'Default workspace', NULL,
+                    0, datetime('now')
+                )
                 """
             )
             conn.execute(

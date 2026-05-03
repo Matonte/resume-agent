@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Resume Agent — Set up your profile</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/jobs_today.css" />
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <h1>Set up <span class="wordmark-tag" aria-hidden="true">Your workspace</span></h1>
+        <p class="subtitle">
+          Upload at least one résumé (<code>.docx</code> or <code>.txt</code>) and paste several job descriptions you care about.
+          We use them once to build your <code>master_truth_model.json</code> and <code>story_bank.json</code> (needs <code>OPENAI_API_KEY</code>,
+          or enable dev-only saving without generation — see <code>.env.example</code>).
+        </p>
+      </div>
+      <div class="links">
+        <a href="/account">Account</a>
+        <a href="/docs" target="_blank">Docs</a>
+      </div>
+    </header>
+
+    <section class="panel">
+      <p id="status-line" class="muted">Loading status…</p>
+      <p id="banner" class="status" hidden></p>
+    </section>
+
+    <section class="panel">
+      <h2 class="panel-heading">Résumé files</h2>
+      <form id="resume-form" class="form-grid">
+        <label><span>File</span><input name="file" type="file" accept=".docx,.txt" required /></label>
+        <button type="submit">Upload résumé</button>
+      </form>
+      <p id="resume-list" class="muted"></p>
+    </section>
+
+    <section class="panel">
+      <h2 class="panel-heading">Job description samples</h2>
+      <p class="muted">Paste full posting text (each sample at least ~80 characters).</p>
+      <form id="jd-form" class="form-grid">
+        <label><span>Job description</span><textarea name="text" rows="10" required placeholder="Paste a job posting you’d apply to…"></textarea></label>
+        <button type="submit">Save sample</button>
+      </form>
+      <p id="jd-count" class="muted"></p>
+    </section>
+
+    <section class="panel">
+      <h2 class="panel-heading">Finish</h2>
+      <p class="muted">When counts below meet the minimum, run generation and unlock the rest of the app.</p>
+      <button type="button" id="finish-btn" class="primary" disabled>Generate profile &amp; continue</button>
+      <p id="finish-msg" class="status" hidden></p>
+    </section>
+  </main>
+  <script src="/static/onboarding.js"></script>
+</body>
+</html>

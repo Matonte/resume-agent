@@ -42,6 +42,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from app.auth.onboarding_guard import raise_if_onboarding_incomplete
 from app.config import settings
 from app.jobs.job_outreach_notes import maybe_write_job_outreach_notes
 from app.jobs.preferences import load_preferences, merge_preferences_candidate
@@ -156,6 +157,7 @@ def manual_tailor_get() -> JSONResponse:
 
 @router.post("/api/manual-tailor", response_model=ManualTailorResponse)
 def manual_tailor(request: Request, payload: ManualTailorRequest) -> Any:
+    raise_if_onboarding_incomplete(request)
     if not payload.has_jd_source():
         raise HTTPException(
             status_code=400,
