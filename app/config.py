@@ -111,6 +111,15 @@ class Settings(BaseModel):
         _strip(os.getenv("MEETING_ADVISOR_ADVISE_PATH")) or "/api/v1/advise"
     )
 
+    # Contact Advisor (flask_sample `python run.py`) — people-intel: POST /api/v1/people-intel.
+    # Prefer CONTACT_ADVISOR_SERVICE_URL; WHOISWHAT_SERVICE_URL is a deprecated alias.
+    whoiswhat_service_url: str = _strip(
+        os.getenv("CONTACT_ADVISOR_SERVICE_URL") or os.getenv("WHOISWHAT_SERVICE_URL")
+    )
+    whoiswhat_people_intel_path: str = (
+        _strip(os.getenv("WHOISWHAT_PEOPLE_INTEL_PATH")) or "/api/v1/people-intel"
+    )
+
     def site_credentials(self, site: str) -> tuple[str, str]:
         """Return `(email, password)` for a site. Empty strings when unset.
         Used only by the one-time login helper; scrapers rely on cookies."""
@@ -156,6 +165,19 @@ class Settings(BaseModel):
     @property
     def meeting_advisor_configured(self) -> bool:
         return bool(self.meeting_advisor_url)
+
+    @property
+    def whoiswhat_people_intel_post_url(self) -> str:
+        """Full URL for POST people-intel (public professional context synthesis)."""
+        base = (self.whoiswhat_service_url or "").strip().rstrip("/")
+        path = (self.whoiswhat_people_intel_path or "/api/v1/people-intel").strip()
+        if not path.startswith("/"):
+            path = "/" + path
+        return f"{base}{path}" if base else ""
+
+    @property
+    def whoiswhat_people_intel_configured(self) -> bool:
+        return bool((self.whoiswhat_service_url or "").strip())
 
     @property
     def meeting_advisor_browser_redirect_url(self) -> str:

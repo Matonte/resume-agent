@@ -16,6 +16,8 @@ def test_health():
     assert data["loaded_files"]["truth_model_roles"] > 0
     assert "llm_configured" in data["loaded_files"]
     assert "meeting_advisor_configured" in data["loaded_files"]
+    assert "whoiswhat_people_intel_configured" in data["loaded_files"]
+    assert "web_search_configured" in data["loaded_files"]
 
 
 def test_classify():
@@ -323,6 +325,39 @@ def test_outreach_enrich_requires_fields():
             "hits": [{"title": "t", "url": "https://x.com"}],
         },
     )
+    assert res.status_code == 400
+
+
+def test_person_web_search_when_keys_missing(monkeypatch):
+    from app.config import settings as app_settings
+
+    s = app_settings.model_copy(
+        update={
+            "google_cse_api_key": "",
+            "google_cse_cx": "",
+            "bing_search_key": "",
+        }
+    )
+    monkeypatch.setattr("app.routers.api.settings", s)
+    res = client.post("/api/person-web-search", json={"name": "Jane Doe"})
+    assert res.status_code == 200
+    body = res.json()
+    assert body["web_search_configured"] is False
+    assert body["hits"] == []
+
+
+def test_person_web_search_short_name(monkeypatch):
+    from app.config import settings as app_settings
+
+    s = app_settings.model_copy(
+        update={
+            "google_cse_api_key": "dummy-key",
+            "google_cse_cx": "dummy-cx",
+            "bing_search_key": "",
+        }
+    )
+    monkeypatch.setattr("app.routers.api.settings", s)
+    res = client.post("/api/person-web-search", json={"name": "x"})
     assert res.status_code == 400
 
 

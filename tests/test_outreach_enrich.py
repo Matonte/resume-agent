@@ -65,6 +65,7 @@ def test_enrich_calls_meeting_advisor_when_configured(monkeypatch: pytest.Monkey
             "meeting_advisor_url": "http://127.0.0.1:5003",
             "whoiswhat_agent_path": "",
             "whoiswhat_enrich_module": "",
+            "whoiswhat_service_url": "",
         }
     )
     monkeypatch.setattr("app.services.outreach_enrich.settings", s)
@@ -88,6 +89,50 @@ def test_enrich_calls_meeting_advisor_when_configured(monkeypatch: pytest.Monkey
     out = enrich_outreach_hits([hit], "Backend roles", use_llm=False)
     assert out[0].combined_opening == "Advisor says hi."
     assert out[0].whoiswhat_raw and "meeting_advisor" in out[0].whoiswhat_raw
+
+
+def test_enrich_calls_people_intel_when_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    s = settings.model_copy(
+        update={
+            "meeting_advisor_url": "",
+            "whoiswhat_agent_path": "",
+            "whoiswhat_enrich_module": "",
+            "whoiswhat_service_url": "http://127.0.0.1:5000",
+        }
+    )
+    monkeypatch.setattr("app.services.outreach_enrich.settings", s)
+
+    def fake_intel(*, person, company, snippets, notes=None, client=None):
+        return {
+            "person": person,
+            "likely_role": "TA Partner",
+            "confidence": 0.71,
+            "sources": ["web search snippet"],
+            "professional_interests": ["hiring"],
+            "communication_style_signals": ["direct"],
+            "stakeholder_likelihood": {
+                "decision_maker": 0.2,
+                "recruiter": 0.85,
+                "hiring_manager": 0.35,
+            },
+            "professional_summary": "Public-facing TA.",
+            "safe_outreach_angle": "Angle from people-intel.",
+        }
+
+    monkeypatch.setattr("app.services.outreach_enrich.call_people_intel", fake_intel)
+    hit = WebSearchHit(
+        title="Sam Chen — Talent Partner",
+        url="https://ex.com/sam",
+        snippet="Technical recruiting at Acme.",
+        engine="google",
+        query="q",
+    )
+    out = enrich_outreach_hits([hit], "Acme hiring", use_llm=False)
+    raw = out[0].whoiswhat_raw or {}
+    assert "people_intel" in raw
+    assert raw["people_intel"]["safe_outreach_angle"] == "Angle from people-intel."
+    assert out[0].combined_opening == "Angle from people-intel."
+    assert out[0].inferred_primary_role == "recruiter"
 
 
 def test_infer_role_recruiter() -> None:
@@ -131,6 +176,7 @@ def enrich_contacts(items, *, company_description=""):
             "whoiswhat_enrich_module": "whoiswhat.enrich",
             "whoiswhat_enrich_callable": "enrich_contacts",
             "meeting_advisor_url": "",
+            "whoiswhat_service_url": "",
         }
     )
     monkeypatch.setattr("app.services.outreach_enrich.settings", s)
@@ -157,6 +203,7 @@ def test_enrich_without_whoiswhat(monkeypatch: pytest.MonkeyPatch) -> None:
             "whoiswhat_agent_path": "",
             "whoiswhat_enrich_module": "",
             "meeting_advisor_url": "",
+            "whoiswhat_service_url": "",
         }
     )
     monkeypatch.setattr("app.services.outreach_enrich.settings", s)

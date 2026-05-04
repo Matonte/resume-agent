@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Smoke-test meeting advisor + sibling classifier services (flask_sample).
 
-Resume-agent only calls the meeting advisor HTTP API (default POST /api/v1/advise).
-That service must call WhoIsWhat (:5000) and WhoIsHoss (:5002) unless you change
-its WHOISWHAT_URL / WHOISHOSS_URL.
+Resume-agent calls meeting advisor HTTP API (default POST /api/v1/advise).
+Optionally prints Contact Advisor people-intel schema GET when CONTACT_ADVISOR_SERVICE_URL (or WHOISWHAT_SERVICE_URL) is set.
 
 Usage (from resume-agent repo root):
     python scripts/check_meeting_advisor_stack.py
@@ -56,7 +55,7 @@ def main() -> int:
             return 1
 
         for label, url in (
-            ("WhoIsWhat (K)", "http://127.0.0.1:5000/health"),
+            ("Contact Advisor (K)", "http://127.0.0.1:5000/health"),
             ("WhoIsHoss", "http://127.0.0.1:5002/health"),
         ):
             try:
@@ -93,6 +92,21 @@ def main() -> int:
         except httpx.RequestError as e:
             print(f"POST {advise}  FAILED: {e}")
             return 1
+
+        wi_base = (settings.whoiswhat_service_url or "").strip().rstrip("/")
+        if wi_base:
+            schema_url = f"{wi_base}/api/v1/people-intel/schema"
+            try:
+                sr = client.get(schema_url)
+                print(f"GET  {schema_url}  (people-intel schema) -> {sr.status_code}")
+            except httpx.RequestError as e:
+                print(f"GET  {schema_url}  FAILED: {e}")
+        else:
+            print(
+                "WHOISWHAT_SERVICE_URL unset — resume-agent outreach skips people-intel "
+                "(set CONTACT_ADVISOR_SERVICE_URL or WHOISWHAT_SERVICE_URL to flask_sample "
+                "Contact Advisor base, e.g. http://127.0.0.1:5000)."
+            )
 
     print("OK: advisor accepted POST /api/v1/advise.")
     return 0

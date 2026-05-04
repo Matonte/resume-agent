@@ -330,6 +330,46 @@ def run_supplementary_outreach_searches(
     return CombinationSearchResult(queries=ordered, hits=merged, errors=errors)
 
 
+def run_person_name_search(
+    full_name: str,
+    company: str | None = None,
+    *,
+    title_hint: str | None = None,
+    results_per_query: int = 8,
+) -> CombinationSearchResult:
+    """Disambiguating **open-web** search for a person (Google CSE + Bing when configured).
+
+    Builds a short list of queries (quoted name, optional company / role hint), runs
+    the same engines as outreach discovery, and returns merged URL-deduplicated hits.
+    Snippets are suitable for downstream people-intel or meeting-advisor notes; this
+    does not log into social sites or bypass publisher ToS — only Search API results.
+    """
+    name = " ".join((full_name or "").split()).strip()
+    if len(name) < 2:
+        return CombinationSearchResult(
+            queries=[], hits=[], errors=["name is empty or too short"]
+        )
+
+    queries: List[str] = []
+    queries.append(f'"{name}"')
+
+    co = " ".join((company or "").split()).strip()
+    if co:
+        queries.append(f'"{name}" {co}')
+
+    th = " ".join((title_hint or "").split()).strip()
+    if th:
+        queries.append(f'"{name}" {th}')
+    if co and th:
+        combined = f'"{name}" {co} {th}'
+        if combined not in queries:
+            queries.append(combined)
+
+    return run_supplementary_outreach_searches(
+        queries, results_per_query=results_per_query
+    )
+
+
 __all__ = [
     "KeywordRule",
     "OutreachSearchConfig",
@@ -340,4 +380,5 @@ __all__ = [
     "merge_dedupe_hits",
     "run_combination_search",
     "run_supplementary_outreach_searches",
+    "run_person_name_search",
 ]

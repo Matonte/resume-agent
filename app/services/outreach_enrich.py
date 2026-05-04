@@ -1,25 +1,22 @@
 """Enrich web-search contacts with recruiter / hiring-manager angles.
 
-1. **meeting_advisor** HTTP service: set ``MEETING_ADVISOR_URL`` to its base
-   (e.g. ``http://127.0.0.1:8000`` or standalone flask_sample on ``:5003``).
-   Each contact triggers ``POST {MEETING_ADVISOR_URL}/api/v1/advise`` with the
-   search title/snippet as notes; the response merges WhoIsWhat (K) + WhoIsHoss
-   (HOSS) plus ``advice`` JSON (opening_move, do/don't, watchpoints, …) into
-   the dossier. The full HTTP JSON is stored under ``whoiswhat_raw["meeting_advisor"]``
-   when other enrichers are absent, or merged into a dict beside
-   ``enrich_contacts`` / ``plugin`` keys.
+1. **WhoIsWhat people-intel** (optional HTTP): set ``WHOISWHAT_SERVICE_URL`` to the
+   flask_sample WhoIsWhat base (e.g. ``http://127.0.0.1:5000``). Resume-agent POSTs
+   public snippets to ``/api/v1/people-intel`` before meeting_advisor. The JSON lives
+   under ``whoiswhat_raw["people_intel"]`` (public professional context — not K/HOSS).
 
-2. Optional **Python plug-in** on ``WHOISWHAT_AGENT_PATH``: module
+2. **meeting_advisor** HTTP service: set ``MEETING_ADVISOR_URL`` to its base
+   (e.g. standalone flask_sample on ``:5003``). Each contact triggers
+   ``POST …/api/v1/advise``; response merges K + HOSS + tactical ``advice`` into the
+   dossier under ``whoiswhat_raw["meeting_advisor"]`` when applicable.
+
+3. Optional **Python plug-in** on ``WHOISWHAT_AGENT_PATH``: module
    ``WHOISWHAT_ENRICH_MODULE`` + ``WHOISWHAT_ENRICH_CALLABLE`` (default
-   ``enrich_contacts``). Same per-item list contract as documented below; row
-   stored in ``whoiswhat_raw`` (or under ``enrich_contacts`` if meeting_advisor
-   also runs).
+   ``enrich_contacts``). Rows stored in ``whoiswhat_raw``.
 
-3. **LLM** (``use_llm`` + OpenAI): refines talking points using the search hit
-   plus any enrichment JSON. Does not invent employers beyond sources.
+4. **LLM** (``use_llm`` + OpenAI): refines talking points using the hit plus enrichment JSON.
 
-4. **Heuristic fallback** when other layers are off: role guess from title +
-   light template copy.
+5. **Heuristic fallback** when other layers are off: role guess from title + template copy.
 """
 
 from __future__ import annotations
@@ -39,6 +36,11 @@ from app.config import settings
 from app.services.llm import complete_json, is_available
 from app.services.outreach_posting_people import PostingPerson
 from app.services.outreach_search import WebSearchHit
+from app.services.whoiswhat_people_intel import (
+    call_people_intel,
+    snippets_from_posting_person,
+    snippets_from_web_hit,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -138,6 +140,51 @@ def _call_meeting_advisor(
         return None
 
 
+def _attach_people_intel_raw(
+    dossier: OutreachContactDossier, payload: Dict[str, Any]
+) -> None:
+    if dossier.whoiswhat_raw is None:
+        dossier.whoiswhat_raw = {"people_intel": payload}
+    elif isinstance(dossier.whoiswhat_raw, dict):
+        dossier.whoiswhat_raw = {**dossier.whoiswhat_raw, "people_intel": payload}
+    else:
+        dossier.whoiswhat_raw = {
+            "enrich_contacts": dossier.whoiswhat_raw,
+            "people_intel": payload,
+        }
+
+
+def _maybe_refine_role_from_people_intel(
+    dossier: OutreachContactDossier, payload: Dict[str, Any]
+) -> None:
+    if dossier.inferred_primary_role and dossier.inferred_primary_role != "unknown":
+        return
+    sl = payload.get("stakeholder_likelihood")
+    if not isinstance(sl, dict):
+        return
+    try:
+        rec = float(sl.get("recruiter") or 0)
+        hm = float(sl.get("hiring_manager") or 0)
+        dm = float(sl.get("decision_maker") or 0)
+    except (TypeError, ValueError):
+        return
+    hm_like = max(hm, dm)
+    if rec >= 0.55 and rec >= hm_like:
+        dossier.inferred_primary_role = "recruiter"
+    elif hm_like >= 0.55 and hm_like > rec:
+        dossier.inferred_primary_role = "hiring_manager"
+
+
+def _merge_people_intel_into_dossier(
+    dossier: OutreachContactDossier, payload: Dict[str, Any]
+) -> None:
+    _attach_people_intel_raw(dossier, payload)
+    angle = str(payload.get("safe_outreach_angle") or "").strip()
+    if angle:
+        dossier.combined_opening = angle
+    _maybe_refine_role_from_people_intel(dossier, payload)
+
+
 def advise_for_job_context(
     *,
     subject_name: str,
@@ -179,7 +226,11 @@ def advise_posting_people_dossiers(
     Used when ``outreach_for_job`` wants posting-level contacts but SERP keys
     are missing: still surface advisor-backed outreach rows for named people.
     """
-    if not people or not _meeting_advisor_base_url():
+    if not people:
+        return []
+    has_advisor = bool(_meeting_advisor_base_url())
+    has_intel = settings.whoiswhat_people_intel_configured
+    if not has_advisor and not has_intel:
         return []
     c = (company or "").strip() or "Unknown company"
     t = (title or "").strip() or "Role"
@@ -210,9 +261,23 @@ def advise_posting_people_dossiers(
             query="",
         )
         dossier = _fallback_dossier(hit, role)
-        advisor_resp = _call_meeting_advisor(hit, desc, role)
-        if advisor_resp:
-            _merge_meeting_advisor_into_dossier(dossier, advisor_resp)
+        if has_intel:
+            snips = snippets_from_posting_person(person, excerpt, company=c, title=t)
+            pl = call_people_intel(
+                person=person.name.strip(),
+                company=c,
+                snippets=snips,
+                notes=(
+                    f"Named contact from job posting; resume-agent pipeline role guess: {role}. "
+                    "Public professional context and communication-style signals only."
+                ),
+            )
+            if pl:
+                _merge_people_intel_into_dossier(dossier, pl)
+        if has_advisor:
+            advisor_resp = _call_meeting_advisor(hit, desc, role)
+            if advisor_resp:
+                _merge_meeting_advisor_into_dossier(dossier, advisor_resp)
 
         if use_llm:
             llm_payload = _analyze_with_llm(hit, desc, dossier.whoiswhat_raw)
@@ -573,6 +638,20 @@ def enrich_outreach_hits(
 
         if ww_row:
             _merge_whoiswhat_into_dossier(dossier, ww_row)
+
+        if settings.whoiswhat_people_intel_configured:
+            snips = snippets_from_web_hit(hit)
+            pl = call_people_intel(
+                person=_subject_name_from_hit(hit),
+                company=(company_description or "")[:800] or None,
+                snippets=snips,
+                notes=(
+                    f"Resume-agent inferred contact type: {role}. "
+                    "Public professional context only; do not infer private life or protected traits."
+                ),
+            )
+            if pl:
+                _merge_people_intel_into_dossier(dossier, pl)
 
         advisor_resp = _call_meeting_advisor(hit, company_description, role)
         if advisor_resp:

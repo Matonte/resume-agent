@@ -46,9 +46,11 @@ from app.services.outreach_enrich import (
     advise_posting_people_dossiers,
     enrich_outreach_hits,
 )
-from app.services.outreach_search import WebSearchHit
+from app.services.outreach_search import WebSearchHit, run_person_name_search
+from app.services.person_profile_bundle import PersonProfileBundleParams, build_person_profile_bundle
 from app.services.resume_docx import generate_tailored_resume_bytes
 from app.services.resume_tailor import generate_resume_draft
+from app.services.whoiswhat_people_intel import call_people_intel, snippets_from_web_hit
 
 router = APIRouter()
 
@@ -76,6 +78,50 @@ class MeetingAdvisorBrowserResponse(BaseModel):
     people: Optional[List[Dict[str, Any]]] = None
 
 
+class PeopleIntelSnippetInput(BaseModel):
+    source_label: str = ""
+    content: str = ""
+
+
+class PeopleIntelProxyRequest(BaseModel):
+    """Forward public snippets to flask_sample WhoIsWhat ``POST /api/v1/people-intel``."""
+
+    person: str
+    company: str = ""
+    snippets: List[PeopleIntelSnippetInput]
+    notes: str = ""
+
+
+class PersonWebSearchRequest(BaseModel):
+    """Open-web person lookup via Google Programmable Search and/or Bing Web Search."""
+
+    name: str
+    company: str = ""
+    title_hint: str = ""
+    max_results_per_query: int = 8
+    #: When True and ``WHOISWHAT_SERVICE_URL`` is set, merges hit snippets and calls people-intel.
+    include_people_intel: bool = False
+    people_intel_max_hits: int = 12
+
+
+class PersonWebSearchHitModel(BaseModel):
+    title: str
+    url: str
+    snippet: str
+    engine: str
+    query: str
+
+
+class PersonWebSearchResponse(BaseModel):
+    web_search_configured: bool
+    people_intel_configured: bool = False
+    queries: List[str]
+    hits: List[PersonWebSearchHitModel]
+    errors: List[str]
+    people_intel: Optional[Dict[str, Any]] = None
+    people_intel_note: Optional[str] = None
+
+
 def _fit_to_response(fit) -> FitScoreResponse:
     return FitScoreResponse(score=fit.score, band=fit.band, reasons=fit.reasons)
 
@@ -99,6 +145,10 @@ def health():
             "llm_configured": llm_is_available(),
             "meeting_advisor_configured": settings.meeting_advisor_configured,
             "meeting_advisor_post_url": settings.meeting_advisor_advise_url or None,
+            "whoiswhat_people_intel_configured": settings.whoiswhat_people_intel_configured,
+            "whoiswhat_people_intel_post_url": settings.whoiswhat_people_intel_post_url
+            or None,
+            "web_search_configured": settings.web_search_configured,
             "meeting_advisor_browser_url": settings.meeting_advisor_browser_redirect_url
             or None,
             "meeting_advisor_pages": [
@@ -141,6 +191,134 @@ def answer(req: AnswerRequest):
 @router.post("/fit-score", response_model=FitScoreResponse)
 def fit_score_endpoint(job: JobInput):
     return _fit_to_response(compute_fit_score(job.description))
+
+
+@router.post("/people-intel")
+def people_intel_proxy(body: PeopleIntelProxyRequest):
+    """Thin proxy for manual/testing — same payload as WhoIsWhat people-intel."""
+    if not settings.whoiswhat_people_intel_configured:
+        raise HTTPException(
+            status_code=503,
+            detail="WHOISWHAT_SERVICE_URL is not set.",
+        )
+    person = (body.person or "").strip()
+    if not person:
+        raise HTTPException(status_code=400, detail="person is required")
+    snippets = [
+        {"source_label": s.source_label, "content": s.content}
+        for s in body.snippets
+        if (s.content or "").strip()
+    ]
+    if not snippets:
+        raise HTTPException(status_code=400, detail="at least one snippet with content is required")
+    result = call_people_intel(
+        person=person,
+        company=(body.company or "").strip() or None,
+        snippets=snippets,
+        notes=(body.notes or "").strip() or None,
+    )
+    if result is None:
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "WhoIsWhat people-intel returned no usable JSON. "
+                "Ensure flask_sample WhoIsWhat is running (e.g. python run.py) and OPENAI_API_KEY is set there."
+            ),
+        )
+    return result
+
+
+@router.post("/person-web-search", response_model=PersonWebSearchResponse)
+def person_web_search(body: PersonWebSearchRequest):
+    """Search the open web for a person's name (API results only — no social login/scraping)."""
+    max_n = max(1, min(int(body.max_results_per_query), 10))
+    configured = settings.web_search_configured
+    pi_ok = settings.whoiswhat_people_intel_configured
+
+    if not configured:
+        return PersonWebSearchResponse(
+            web_search_configured=False,
+            people_intel_configured=pi_ok,
+            queries=[],
+            hits=[],
+            errors=[
+                "Web search API keys not configured. Set GOOGLE_CSE_API_KEY + GOOGLE_CSE_CX "
+                "and/or BING_SEARCH_KEY in .env."
+            ],
+            people_intel_note=(
+                "People-intel was not run (web search unavailable)."
+                if body.include_people_intel
+                else None
+            ),
+        )
+
+    raw_name = (body.name or "").strip()
+    if len(raw_name) < 2:
+        raise HTTPException(status_code=400, detail="name must be at least 2 characters")
+
+    res = run_person_name_search(
+        raw_name,
+        company=(body.company or "").strip() or None,
+        title_hint=(body.title_hint or "").strip() or None,
+        results_per_query=max_n,
+    )
+    hits = [
+        PersonWebSearchHitModel(
+            title=h.title,
+            url=h.url,
+            snippet=h.snippet,
+            engine=h.engine,
+            query=h.query,
+        )
+        for h in res.hits
+    ]
+
+    pi_note: str | None = None
+    pi_payload: Dict[str, Any] | None = None
+    if body.include_people_intel:
+        if not pi_ok:
+            pi_note = "WHOISWHAT_SERVICE_URL is not set; skipping people-intel."
+        elif not hits:
+            pi_note = "No search hits to summarize; skipping people-intel."
+        else:
+            cap = max(1, min(int(body.people_intel_max_hits), 20))
+            snippets: List[Dict[str, str]] = []
+            for h in res.hits[:cap]:
+                snippets.extend(snippets_from_web_hit(h))
+            pi_payload = call_people_intel(
+                person=raw_name,
+                company=(body.company or "").strip() or None,
+                snippets=snippets,
+                notes=(
+                    "Snippets are from programmatic web search (titles, snippets, URLs only). "
+                    "Synthesize public professional context only."
+                ),
+            )
+            if pi_payload is None:
+                pi_note = "people-intel returned no data (Is WhoIsWhat running with OPENAI_API_KEY?)."
+
+    return PersonWebSearchResponse(
+        web_search_configured=True,
+        people_intel_configured=pi_ok,
+        queries=res.queries,
+        hits=hits,
+        errors=res.errors,
+        people_intel=pi_payload,
+        people_intel_note=pi_note,
+    )
+
+
+@router.post("/person-profile-bundle")
+def person_profile_bundle_endpoint(body: PersonProfileBundleParams):
+    """Public evidence → optional people-intel → Meeting Advisor (WhoIsWhat K + WhoIsHoss + advice).
+
+    Combines search snippets with stylized prep frameworks; not an assessment of any real individual.
+    """
+    out = build_person_profile_bundle(body)
+    err = out.get("error")
+    if err:
+        raise HTTPException(status_code=400, detail=str(err))
+    return out
 
 
 @router.post("/outreach/enrich", response_model=List[OutreachContactDossier])
@@ -231,10 +409,18 @@ def meeting_advisor_api_help():
         ),
         "flask_sample_siblings": {
             "meeting_advisor": "http://127.0.0.1:5003 (run_meeting_advisor.py)",
-            "whoiswhat": "http://127.0.0.1:5000 (run.py — required for K profile)",
-            "whoishoss": "http://127.0.0.1:5002 (run_whoishoss.py — required for HOSS)",
+            "contact_advisor": "http://127.0.0.1:5000 (run.py — K classify + POST /api/v1/people-intel)",
+            "whoishoss": "http://127.0.0.1:5002 (run_whoishoss.py — required for HOSS via advisor)",
         },
         "diagnostic": "From repo root: python scripts/check_meeting_advisor_stack.py",
+        "bundled_public_profile": {
+            "path": "/api/person-profile-bundle",
+            "method": "POST",
+            "note": (
+                "Optional web search + WhoIsWhat people-intel + Meeting Advisor (K + HOSS + advice). "
+                "Archetypal prep only — see response disclaimer."
+            ),
+        },
     }
 
 

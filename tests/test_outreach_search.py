@@ -14,6 +14,7 @@ from app.services.outreach_search import (
     load_outreach_search_config,
     merge_dedupe_hits,
     run_combination_search,
+    run_person_name_search,
 )
 
 
@@ -70,6 +71,32 @@ def test_load_outreach_search_config_missing_file_uses_defaults(tmp_path: Path) 
     cfg = load_outreach_search_config(tmp_path / "missing.yaml")
     assert isinstance(cfg, OutreachSearchConfig)
     assert isinstance(cfg.open_queries, list)
+
+
+def test_run_person_name_search_empty_name() -> None:
+    r = run_person_name_search(" ")
+    assert r.hits == []
+    assert any("too short" in e.lower() for e in r.errors)
+
+
+def test_run_person_name_search_queries(monkeypatch: pytest.MonkeyPatch) -> None:
+    s = settings.model_copy(
+        update={
+            "google_cse_api_key": "",
+            "google_cse_cx": "",
+            "bing_search_key": "",
+        }
+    )
+    monkeypatch.setattr("app.services.outreach_search.settings", s)
+    r = run_person_name_search(
+        "Jane Doe",
+        company="Acme",
+        title_hint="Engineering Manager",
+        results_per_query=5,
+    )
+    assert '"Jane Doe"' in r.queries
+    assert any("Acme" in q for q in r.queries)
+    assert any("Engineering Manager" in q for q in r.queries)
 
 
 def test_run_combination_search_no_api_keys_returns_message(monkeypatch: pytest.MonkeyPatch) -> None:
