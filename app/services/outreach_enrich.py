@@ -35,7 +35,11 @@ from pydantic import BaseModel, Field
 from app.config import settings
 from app.services.llm import complete_json, is_available
 from app.services.outreach_posting_people import PostingPerson
-from app.services.outreach_search import WebSearchHit
+from app.services.outreach_search import (
+    WebSearchHit,
+    hits_to_evidence_text,
+    run_person_name_search,
+)
 from app.services.whoiswhat_people_intel import (
     call_people_intel,
     snippets_from_posting_person,
@@ -193,18 +197,77 @@ def advise_for_job_context(
     job_description_excerpt: str,
     listing_url: str = "",
 ) -> Optional[Dict[str, Any]]:
-    """POST to meeting_advisor for manual intake / review UI (synthetic hit)."""
+    """POST to meeting_advisor for manual intake / review UI (synthetic hit).
+
+    When the user supplies a **focus person** (non-empty ``subject_name``), uses the
+    same public-evidence stack as ``/api/person-profile-bundle``: optional open-web
+    name search (when search keys are set), optional Contact Advisor
+    ``POST …/people-intel`` (when ``CONTACT_ADVISOR_SERVICE_URL`` / ``WHOISWHAT_SERVICE_URL``
+    is set), then passes merged JD + evidence into the advisor. When
+    ``subject_name`` is empty, behavior stays JD-only for generic hiring-team prep.
+    """
     if not _meeting_advisor_base_url():
         return None
     c = (company or "").strip() or "Unknown company"
     t = (title or "").strip() or "Role"
-    sn = (subject_name or "").strip() or f"{c} hiring team"
+    raw_focus = (subject_name or "").strip()
+    display_subject = raw_focus or f"{c} hiring team"
     excerpt = (job_description_excerpt or "").strip()[:4000]
     url = (listing_url or "").strip() or "resume-agent://intake"
+
+    hits: List[WebSearchHit] = []
+    if len(raw_focus) >= 2 and settings.web_search_configured:
+        res = run_person_name_search(raw_focus, company=c, title_hint=t or None)
+        hits = list(res.hits)
+
+    intel_blurb = ""
+    if len(raw_focus) >= 2 and settings.whoiswhat_people_intel_configured:
+        snips: List[Dict[str, str]] = []
+        for h in hits[:12]:
+            snips.extend(snippets_from_web_hit(h))
+        if excerpt:
+            snips.append(
+                {"source_label": "job posting excerpt", "content": excerpt[:10000]}
+            )
+        snips.append(
+            {
+                "source_label": "job listing context",
+                "content": f"Company: {c}\nRole: {t}\nListing: {url}"[:2000],
+            }
+        )
+        if snips:
+            pl = call_people_intel(
+                person=raw_focus,
+                company=c,
+                snippets=snips,
+                notes=(
+                    "Resume-agent manual or embedded advisor path: JD excerpt and/or open-web "
+                    "snippets only. Public professional context; no private-life or "
+                    "protected-trait inference."
+                ),
+            )
+            if pl:
+                angle = str(pl.get("safe_outreach_angle") or "").strip()
+                if angle:
+                    intel_blurb = f"\n\nPeople-intel (public-context synthesis): {angle}"
+
+    web_blob = hits_to_evidence_text(hits, 6000) if hits else ""
+
+    snippet_parts: List[str] = []
+    if excerpt:
+        snippet_parts.append(excerpt)
+    if web_blob:
+        snippet_parts.append(
+            "--- Open-web evidence (search snippets) ---\n" + web_blob
+        )
+    if intel_blurb:
+        snippet_parts.append(intel_blurb.strip())
+    full_snippet = "\n\n".join(p for p in snippet_parts if p).strip()[:8000]
+
     hit = WebSearchHit(
-        title=f"{sn} — {c}",
+        title=f"{display_subject} — {c}",
         url=url,
-        snippet=excerpt,
+        snippet=full_snippet if full_snippet else excerpt,
         engine="intake",
         query="",
     )
@@ -221,10 +284,11 @@ def advise_posting_people_dossiers(
     listing_url: str = "",
     use_llm: bool = True,
 ) -> List[OutreachContactDossier]:
-    """One meeting_advisor call per name extracted from the JD (no web search).
+    """One meeting_advisor call per name extracted from the JD.
 
-    Used when ``outreach_for_job`` wants posting-level contacts but SERP keys
-    are missing: still surface advisor-backed outreach rows for named people.
+    When web search API keys are set, runs the same disambiguating name queries as
+    ``run_person_name_search`` / ``/api/person-profile-bundle`` and merges snippets into
+    people-intel and advisor notes (in addition to posting text and JD excerpt).
     """
     if not people:
         return []
@@ -238,11 +302,29 @@ def advise_posting_people_dossiers(
     desc = f"{c}\n{t}\n{excerpt[:2500]}"
     list_url = (listing_url or "").strip() or "resume-agent://jd-person"
     out: List[OutreachContactDossier] = []
+    use_name_search = settings.web_search_configured
 
     for person in people:
-        p_snippet_parts = [person.evidence] if person.evidence else []
+        pname = " ".join((person.name or "").split()).strip()
+        extra_hits: List[WebSearchHit] = []
+        if use_name_search and len(pname) >= 2:
+            res = run_person_name_search(
+                pname,
+                company=c,
+                title_hint=(person.role_hint or t or "").strip() or None,
+            )
+            extra_hits = list(res.hits)
+
+        p_snippet_parts: List[str] = []
+        if person.evidence:
+            p_snippet_parts.append(person.evidence)
         if excerpt:
             p_snippet_parts.append(excerpt[:1800])
+        if extra_hits:
+            p_snippet_parts.append(
+                "--- Open-web evidence (search snippets) ---\n"
+                + hits_to_evidence_text(extra_hits, 4000)
+            )
         snippet = "\n\n".join(x for x in p_snippet_parts if x)[:3500]
         role = _infer_role_from_title(
             f"{person.name} {person.role_hint}",
@@ -263,6 +345,8 @@ def advise_posting_people_dossiers(
         dossier = _fallback_dossier(hit, role)
         if has_intel:
             snips = snippets_from_posting_person(person, excerpt, company=c, title=t)
+            for h in extra_hits[:12]:
+                snips.extend(snippets_from_web_hit(h))
             pl = call_people_intel(
                 person=person.name.strip(),
                 company=c,

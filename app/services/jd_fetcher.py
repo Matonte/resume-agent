@@ -19,9 +19,9 @@ import logging
 import re
 from dataclasses import dataclass
 from typing import Optional
-from urllib.parse import urlparse
 
 from app.scrapers.base import RawJob
+from app.services.company_resolve import company_hint_from_listing_url
 
 logger = logging.getLogger(__name__)
 
@@ -112,27 +112,8 @@ def _guess_company(soup, url: str) -> str:
                 return _collapse_ws(m["content"])[:120]
         except Exception:
             continue
-    # Path-based: greenhouse, lever, ashbyhq put the company in the URL.
-    try:
-        host = urlparse(url).hostname or ""
-        path = urlparse(url).path.strip("/").split("/")
-        if "greenhouse.io" in host and path:
-            return path[0].replace("-", " ").title()
-        if "lever.co" in host and path:
-            return path[0].replace("-", " ").title()
-        if "ashbyhq.com" in host and path:
-            return path[0].replace("-", " ").title()
-        if "welcometothejungle.com" in host:
-            # /en/companies/<slug>/jobs/<job-slug>
-            if len(path) >= 3 and path[1] == "companies":
-                return path[2].replace("-", " ").title()
-        # Generic: use the second-level domain.
-        host_parts = host.split(".")
-        if len(host_parts) >= 2:
-            return host_parts[-2].title()
-    except Exception:
-        pass
-    return "Unknown"
+    hint = company_hint_from_listing_url(url)
+    return hint if hint else "Unknown"
 
 
 def fetch_jd(url: str, *, timeout: float = 15.0) -> FetchedJob:

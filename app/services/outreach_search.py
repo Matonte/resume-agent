@@ -137,6 +137,19 @@ class CombinationSearchResult:
     errors: List[str] = field(default_factory=list)
 
 
+def hits_to_evidence_text(hits: Sequence[WebSearchHit], cap: int) -> str:
+    """Flatten search hits into advisor / people-intel style evidence prose."""
+    parts: List[str] = []
+    for h in hits[:30]:
+        line = (
+            f"[{h.engine} — {h.title}]\nURL: {h.url}\nSnippet: {h.snippet}"
+        ).strip()
+        if line:
+            parts.append(line)
+    blob = "\n\n---\n\n".join(parts)
+    return blob[:cap] if len(blob) > cap else blob
+
+
 def merge_dedupe_hits(hits: Sequence[WebSearchHit]) -> List[WebSearchHit]:
     """Keep first occurrence per normalized URL; preserve input order."""
     by_url: dict[str, WebSearchHit] = {}
@@ -377,6 +390,7 @@ __all__ = [
     "build_query_plan",
     "WebSearchHit",
     "CombinationSearchResult",
+    "hits_to_evidence_text",
     "merge_dedupe_hits",
     "run_combination_search",
     "run_supplementary_outreach_searches",

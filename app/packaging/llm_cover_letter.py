@@ -20,6 +20,7 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
+from app.services.company_resolve import is_placeholder_company
 from app.services.data_loader import load_archetypes
 from app.services.llm import complete_json, is_available
 from app.services.llm_rewrite import (
@@ -65,8 +66,15 @@ def rewrite_cover_letter(
     specializations = ", ".join(archetype.get("specializations", []) or [])
     focus_traits = ", ".join(archetype.get("focus_traits", []) or [])
 
+    target_co = (company or "").strip()
+    if is_placeholder_company(target_co):
+        target_co = (
+            "not stated in the listing (use a generic salutation such as "
+            "'Dear hiring team' — do not invent an employer name)"
+        )
+
     user_prompt = (
-        f"Target company: {company}\n"
+        f"Target company: {target_co}\n"
         f"Target role:    {title}\n"
         f"Archetype hints - scale: '{scale}'; domain: '{domain}'; "
         f"specializations: {specializations}; focus traits: {focus_traits}.\n\n"

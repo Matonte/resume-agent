@@ -294,10 +294,19 @@ def manual_tailor(request: Request, payload: ManualTailorRequest) -> Any:
                     listing_url=tailored.record.url or effective_url,
                 )
                 if tried_extract and meeting_advice is not None:
-                    meeting_note = (
-                        "No named contacts found in the posting (or LLM extraction off); "
-                        "showing general hiring-team prep."
-                    )
+                    focus = (payload.advisor_subject_name or "").strip()
+                    if focus:
+                        meeting_note = (
+                            "No named contacts found in the posting (or LLM extraction off); "
+                            f"used focus person {focus!r} with JD plus open-web / people-intel "
+                            "evidence when configured."
+                        )
+                    else:
+                        meeting_note = (
+                            "No named contacts found in the posting (or LLM extraction off); "
+                            "showing general hiring-team prep. Add a focus person above for "
+                            "person-specific prep when the posting names no one."
+                        )
                 elif meeting_advice is None and not meeting_note:
                     meeting_note = "Meeting advisor returned no response (check server logs)."
     elif settings.meeting_advisor_configured:

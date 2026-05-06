@@ -22,6 +22,7 @@ from app.packaging.cover_letter import build_cover_letter, write_cover_letter_do
 from app.packaging.screening import answer_questions, extract_questions
 from app.scrapers.base import RawJob
 from app.services.classifier import classify_job
+from app.services.company_resolve import resolve_company_for_packaging
 from app.services.fit_score import compute_fit_score
 from app.services.resume_docx import generate_tailored_resume_bytes
 from app.services.resume_tailor import generate_resume_draft
@@ -67,6 +68,7 @@ def tailor_job_from_raw(
 
     job_id = JobRecord.make_id(raw.source, raw.url, user_id=user_id)
     job_dir = artifact_dir_for(job_id, run_date, user_id=user_id)
+    effective_company = resolve_company_for_packaging(raw.company, raw.jd_full, raw.url)
 
     resume_bytes = generate_tailored_resume_bytes(
         archetype_id=archetype_id,
@@ -77,7 +79,7 @@ def tailor_job_from_raw(
 
     cover_text = build_cover_letter(
         candidate_name=prefs.candidate.name,
-        company=raw.company,
+        company=effective_company,
         title=raw.title,
         archetype_id=archetype_id,
         job_description=raw.jd_full,
@@ -98,7 +100,7 @@ def tailor_job_from_raw(
         "url": raw.url,
         "apply_url": raw.apply_url or raw.url,
         "title": raw.title,
-        "company": raw.company,
+        "company": effective_company,
         "location": raw.location,
         "salary_raw": raw.salary_raw,
         "archetype_id": archetype_id,
@@ -122,7 +124,7 @@ def tailor_job_from_raw(
         url=raw.url,
         external_id=raw.external_id,
         title=raw.title,
-        company=raw.company,
+        company=effective_company,
         location=raw.location,
         salary_raw=raw.salary_raw,
         posted_at=raw.posted_at,

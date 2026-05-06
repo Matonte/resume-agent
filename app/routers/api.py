@@ -490,10 +490,17 @@ def meeting_advisor_standalone(body: MeetingAdvisorBrowserRequest):
             "advisor there. Optionally set MEETING_ADVISOR_ADVISE_PATH."
         )
     elif tried_extract:
-        note = (
-            "No names extracted from this posting — showing general hiring-team prep. "
-            "(Try a longer JD, enable “Use LLM” with OPENAI_API_KEY, or set a focus person.)"
-        )
+        sn = (body.subject_name or "").strip()
+        if sn:
+            note = (
+                f"No names extracted from this posting — showing prep for {sn!r} using the JD "
+                "plus open-web search and people-intel when those services are configured."
+            )
+        else:
+            note = (
+                "No names extracted from this posting — showing general hiring-team prep. "
+                "(Try a longer JD, enable “Use LLM” with OPENAI_API_KEY, or set a focus person.)"
+            )
     return MeetingAdvisorBrowserResponse(
         configured=True, meeting_advisor_note=note, advice=advice
     )

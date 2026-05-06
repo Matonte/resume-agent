@@ -15,6 +15,19 @@ import pytest
 from app.packaging.cover_letter import build_cover_letter, write_cover_letter_docx
 
 
+def test_deterministic_placeholder_salutation_neutral() -> None:
+    out = build_cover_letter(
+        candidate_name="Michael Matonte",
+        company="Unknown",
+        title="Senior Backend Engineer",
+        archetype_id="B_fintech_transaction_systems",
+        job_description="We need a senior backend engineer.",
+        use_llm=False,
+    )
+    assert "Dear hiring team," in out
+    assert "Unknown" not in out
+
+
 def test_deterministic_cover_letter_mentions_company_and_title() -> None:
     out = build_cover_letter(
         candidate_name="Michael Matonte",
@@ -27,8 +40,6 @@ def test_deterministic_cover_letter_mentions_company_and_title() -> None:
     assert "Ledgerline Payments" in out
     assert "Senior Backend Engineer" in out
     assert "Michael Matonte" in out
-
-
 def test_write_cover_letter_docx(tmp_path: Path) -> None:
     text = "Dear team,\n\nHello!\n\nSincerely,\nMe"
     out = tmp_path / "cover.docx"

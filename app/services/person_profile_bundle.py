@@ -12,7 +12,12 @@ from pydantic import BaseModel, Field
 
 from app.config import settings
 from app.services.meeting_advisor_client import post_meeting_advise
-from app.services.outreach_search import WebSearchHit, merge_dedupe_hits, run_person_name_search
+from app.services.outreach_search import (
+    WebSearchHit,
+    hits_to_evidence_text,
+    merge_dedupe_hits,
+    run_person_name_search,
+)
 from app.services.whoiswhat_people_intel import call_people_intel, snippets_from_web_hit
 
 DISCLAIMER = (
@@ -44,18 +49,6 @@ class PersonProfileBundleParams(BaseModel):
     )
     extra_snippets: List[ProfileSnippet] = Field(default_factory=list)
     evidence_char_cap: int = Field(default=8000, ge=2000, le=20000)
-
-
-def _hits_to_evidence_text(hits: Sequence[WebSearchHit], cap: int) -> str:
-    parts: List[str] = []
-    for h in hits[:30]:
-        line = (
-            f"[{h.engine} — {h.title}]\nURL: {h.url}\nSnippet: {h.snippet}"
-        ).strip()
-        if line:
-            parts.append(line)
-    blob = "\n\n---\n\n".join(parts)
-    return blob[:cap] if len(blob) > cap else blob
 
 
 def _merge_snippets_into_evidence(
@@ -187,7 +180,7 @@ def build_person_profile_bundle(params: PersonProfileBundleParams) -> Dict[str, 
             hits = list(res.hits)
             search_errors = list(res.errors)
 
-    evidence = _hits_to_evidence_text(hits, params.evidence_char_cap)
+    evidence = hits_to_evidence_text(hits, params.evidence_char_cap)
     evidence = _merge_snippets_into_evidence(
         evidence, params.extra_snippets, params.evidence_char_cap
     )

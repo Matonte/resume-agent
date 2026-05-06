@@ -14,6 +14,7 @@ from typing import Optional
 
 from docx import Document
 
+from app.services.company_resolve import is_placeholder_company
 from app.services.data_loader import load_archetypes, load_truth_model
 
 
@@ -41,6 +42,13 @@ def _deterministic_cover_letter(
     spec_str = ", ".join(specializations[:3]) if specializations else "backend architecture"
     focus_str = ", ".join(focus_traits[:3]) if focus_traits else "reliability"
 
+    co = (company or "").strip()
+    dear = (
+        f"Dear {co} hiring team,"
+        if not is_placeholder_company(co)
+        else "Dear hiring team,"
+    )
+
     current_role = next(
         (r for r in truth.get("roles", []) if r.get("is_current")),
         (truth.get("roles") or [None])[0],
@@ -49,7 +57,7 @@ def _deterministic_cover_letter(
     signature = (current_role or {}).get("signature_project") or ""
 
     paragraphs = [
-        f"Dear {company} hiring team,",
+        dear,
         (
             f"I'm {candidate_name or 'a'} {headline} with {years}+ years of experience "
             f"building {scale} in {domain}. I'm writing to express interest in your "
@@ -58,8 +66,17 @@ def _deterministic_cover_letter(
         (
             f"My recent work at {current_company} has focused on {spec_str}, with a "
             f"focus on {focus_str}."
-            + (f" I led {signature}, a production system that is representative of the "
-               f"impact I would bring to {company}." if signature else "")
+            + (
+                f" I led {signature}, a production system that is representative of the "
+                f"impact I would bring to {co}."
+                if signature and not is_placeholder_company(co)
+                else (
+                    f" I led {signature}, a production system that is representative of the "
+                    f"impact I would bring in this role."
+                    if signature
+                    else ""
+                )
+            )
         ),
         (
             f"I would welcome the chance to talk about how that background maps to "

@@ -12,7 +12,9 @@ tailor invokes it for the single job when enabled.
 
 Requires Google/Bing search keys for full SERP outreach. When search keys are
 missing but ``MEETING_ADVISOR_URL`` is set and ``posting_people`` is true,
-named people in the JD still get advisor-backed dossiers (no web search).
+named people in the JD still get advisor-backed dossiers (posting text only).
+When search keys **are** set, JD-extracted names also get the same open-web
+snippet merge as ``/api/person-profile-bundle`` before people-intel and the advisor.
 """
 
 from __future__ import annotations

@@ -13,9 +13,12 @@ from app.services.outreach_enrich import (
     _merge_meeting_advisor_into_dossier,
     _merge_stakeholder,
     _subject_name_from_hit,
+    advise_for_job_context,
+    advise_posting_people_dossiers,
     enrich_outreach_hits,
 )
-from app.services.outreach_search import WebSearchHit
+from app.services.outreach_posting_people import PostingPerson
+from app.services.outreach_search import CombinationSearchResult, WebSearchHit
 
 
 def test_subject_name_from_hit_strips_title_noise() -> None:
@@ -217,3 +220,142 @@ def test_enrich_without_whoiswhat(monkeypatch: pytest.MonkeyPatch) -> None:
     out = enrich_outreach_hits([hit], "API platform", use_llm=False)
     assert out[0].inferred_primary_role == "engineer"
     assert out[0].whoiswhat_raw is None
+
+
+def test_advise_for_job_context_skips_name_search_without_focus_person(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str] = []
+
+    def boom(*_a, **_k):
+        calls.append("search")
+        return CombinationSearchResult()
+
+    monkeypatch.setattr("app.services.outreach_enrich.run_person_name_search", boom)
+
+    captured: dict[str, str] = {}
+
+    def fake_advisor(hit, desc, role, *, client=None):
+        captured["snippet"] = hit.snippet
+        return {"advice": {}}
+
+    monkeypatch.setattr("app.services.outreach_enrich._call_meeting_advisor", fake_advisor)
+    s = settings.model_copy(
+        update={
+            "meeting_advisor_url": "http://127.0.0.1:5003",
+            "google_cse_api_key": "k",
+            "google_cse_cx": "cx",
+        }
+    )
+    monkeypatch.setattr("app.services.outreach_enrich.settings", s)
+
+    advise_for_job_context(
+        subject_name="",
+        company="Acme",
+        title="Engineer",
+        job_description_excerpt="We ship APIs.",
+    )
+    assert calls == []
+    assert captured["snippet"] == "We ship APIs."
+
+
+def test_advise_for_job_context_merges_web_and_intel_for_focus_person(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_search(full_name, company=None, **kwargs):
+        assert full_name == "Pat Lee"
+        return CombinationSearchResult(
+            hits=[
+                WebSearchHit(
+                    title="Pat Lee | LinkedIn",
+                    url="https://ex.com/in/pat",
+                    snippet="Staffing at Acme",
+                    engine="google",
+                    query="q",
+                )
+            ]
+        )
+
+    monkeypatch.setattr("app.services.outreach_enrich.run_person_name_search", fake_search)
+
+    def fake_intel(*, person, company, snippets, notes=None, client=None):
+        assert person == "Pat Lee"
+        assert any(s.get("source_label") == "job posting excerpt" for s in snippets)
+        return {"safe_outreach_angle": "Intel angle for Pat."}
+
+    monkeypatch.setattr("app.services.outreach_enrich.call_people_intel", fake_intel)
+
+    captured: dict[str, str] = {}
+
+    def fake_advisor(hit, desc, role, *, client=None):
+        captured["snippet"] = hit.snippet
+        return {"advice": {}}
+
+    monkeypatch.setattr("app.services.outreach_enrich._call_meeting_advisor", fake_advisor)
+    s = settings.model_copy(
+        update={
+            "meeting_advisor_url": "http://127.0.0.1:5003",
+            "google_cse_api_key": "k",
+            "google_cse_cx": "cx",
+            "whoiswhat_service_url": "http://127.0.0.1:5000",
+        }
+    )
+    monkeypatch.setattr("app.services.outreach_enrich.settings", s)
+
+    advise_for_job_context(
+        subject_name="Pat Lee",
+        company="Acme",
+        title="Engineer",
+        job_description_excerpt="Role details here.",
+    )
+    snip = captured["snippet"]
+    assert "Role details here." in snip
+    assert "Open-web evidence" in snip
+    assert "Intel angle for Pat." in snip
+    assert "linkedin.com" in snip.lower() or "ex.com" in snip
+
+
+def test_advise_posting_people_merges_web_hits_when_search_configured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_search(full_name, company=None, **kwargs):
+        return CombinationSearchResult(
+            hits=[
+                WebSearchHit(
+                    title="Profile",
+                    url="https://openweb.example/p",
+                    snippet="Public bio line",
+                    engine="google",
+                    query="q",
+                )
+            ]
+        )
+
+    monkeypatch.setattr("app.services.outreach_enrich.run_person_name_search", fake_search)
+
+    captured: dict[str, str] = {}
+
+    def fake_advisor(hit, desc, role, *, client=None):
+        captured["snippet"] = hit.snippet
+        return {"advice": {"opening_move": "x"}}
+
+    monkeypatch.setattr("app.services.outreach_enrich._call_meeting_advisor", fake_advisor)
+    s = settings.model_copy(
+        update={
+            "meeting_advisor_url": "http://127.0.0.1:5003",
+            "google_cse_api_key": "k",
+            "google_cse_cx": "cx",
+            "whoiswhat_service_url": "",
+        }
+    )
+    monkeypatch.setattr("app.services.outreach_enrich.settings", s)
+
+    advise_posting_people_dossiers(
+        [PostingPerson(name="Alex Kim", evidence="Named in footer", role_hint="TA")],
+        company="Co",
+        title="Backend",
+        job_description_excerpt="",
+        use_llm=False,
+    )
+    assert "Open-web evidence" in captured["snippet"]
+    assert "Public bio line" in captured["snippet"]
