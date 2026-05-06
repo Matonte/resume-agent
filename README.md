@@ -63,7 +63,7 @@ Use this checklist when onboarding someone to the repo (local-only is enough).
 | 4 | Start the app: **`.\scripts\run_local.ps1`** (Windows) or **`uvicorn app.main:app --reload --host 127.0.0.1 --port 8000`**. If port 8000 is stuck: **`powershell -ExecutionPolicy Bypass -File .\scripts\kill_port.ps1 8000`**. |
 | 5 | Sanity check: [http://127.0.0.1:8000/api/health](http://127.0.0.1:8000/api/health) should return `200` and JSON `status: ok`. |
 | 6 | **Two ways to work:** (A) **Don’t log in** — you use the default workspace and the bundled **`data/`** truth model (good for trying the UI). (B) **Register** at **`/account`** — you get an isolated profile under **`outputs/user_profiles/`** and must complete **`/onboarding`** once: upload at least one résumé (`.docx` or `.txt`) and paste **three** job descriptions. Finishing runs an LLM step to build **`master_truth_model.json`** / **`story_bank.json`** in your profile when **`OPENAI_API_KEY`** is set. For local dev without OpenAI, set **`ONBOARDING_ALLOW_FINISH_WITHOUT_LLM=1`** in `.env` to save raw uploads and still unlock the app (see `.env.example`). |
-| After | Optional: **`MEETING_ADVISOR_URL`**, search keys for outreach, Playwright **`login_once`** for scrapers — see **Configuration** below and **`docs/CUTOVER_CHECKLIST.md`** for production. |
+| After | Optional: **Contact Advisor** (Meeting Advisor stack) — see [**Contact Advisor + Meeting Advisor**](#contact-advisor--meeting-advisor-optional) below and repo **[github.com/Matonte/contact-advisor](https://github.com/Matonte/contact-advisor)**; search keys for outreach, Playwright **`login_once`** for scrapers — see **Configuration** and **`docs/CUTOVER_CHECKLIST.md`**. |
 
 ### URLs
 
@@ -75,6 +75,7 @@ Use this checklist when onboarding someone to the repo (local-only is enough).
 | Account (register / login) | http://127.0.0.1:8000/account |
 | First-time setup (résumé + job samples) | http://127.0.0.1:8000/onboarding |
 | Meeting advisor (prep UI; set `MEETING_ADVISOR_URL` so Run advisor can POST to your advisor app) | http://127.0.0.1:8000/meeting-advisor |
+| Contact Advisor (sibling repo — WhoIsWhat, people-intel, Meeting Advisor processes) | [github.com/Matonte/contact-advisor](https://github.com/Matonte/contact-advisor) |
 | OpenAPI | http://127.0.0.1:8000/docs |
 | Health | http://127.0.0.1:8000/api/health |
 
@@ -98,6 +99,7 @@ Copy from [`.env.example`](.env.example). Commonly used:
 | `ONBOARDING_ALLOW_FINISH_WITHOUT_LLM` | Set `1` for local dev to finish onboarding without generating profile JSON |
 | `OPENAI_API_KEY` | LLM polish, posting-people extraction, onboarding profile generation, outreach enrichment |
 | `MODEL_NAME` | Chat model id (default in `.env.example`) |
+| `CONTACT_ADVISOR_SERVICE_URL` | Base URL of **Contact Advisor** (WhoIsWhat + `POST /api/v1/people-intel`), e.g. `http://127.0.0.1:5000`. Alias: `WHOISWHAT_SERVICE_URL`. Unlocks people-intel in outreach and embedded advisor flows when set |
 | `MEETING_ADVISOR_URL` | Base URL of the **advisor app** only (default POST path `/api/v1/advise`). Use the advisor process, e.g. `http://127.0.0.1:5003` — **not** resume-agent’s URL unless that stack serves the advise route |
 | `MEETING_ADVISOR_UI_URL` | Optional; if set, GET `/meeting-advisor` redirects the browser here instead of the embedded page. API POSTs still use `MEETING_ADVISOR_URL` |
 | `MEETING_ADVISOR_ADVISE_PATH` | Optional; default `/api/v1/advise` if your advisor uses a different path |
@@ -108,6 +110,40 @@ Copy from [`.env.example`](.env.example). Commonly used:
 | `PLAYWRIGHT_*` | Channel + per-site profile dirs — see `.env.example` |
 
 **Outreach** is controlled in `data/preferences.yaml` under `outreach_for_job` (including `posting_people` and `fetch_apply_page` for named-contact extraction + extra searches). Requires search API keys above.
+
+## Contact Advisor + Meeting Advisor (optional)
+
+Prep features in Resume Agent (**`/meeting-advisor`**, outreach enrichment, manual tailor advisor, `POST /api/person-profile-bundle`) call a **Meeting Advisor** HTTP API (`POST …/api/v1/advise`). That service orchestrates **WhoIsWhat (K)**, **WhoIsHoss**, and tactical prep JSON. The implementation lives in the sibling **[Contact Advisor](https://github.com/Matonte/contact-advisor)** repo (clone beside `resume-agent` as `contact_advisor` or `flask_sample` so `scripts/start_meeting_advisor.ps1` can find it, or pass `-RepoRoot`).
+
+### Portal / links
+
+| What | URL |
+|------|-----|
+| **Contact Advisor** source | [github.com/Matonte/contact-advisor](https://github.com/Matonte/contact-advisor) |
+| **Meeting prep UI** in Resume Agent (embedded; set `MEETING_ADVISOR_URL`) | [http://127.0.0.1:8000/meeting-advisor](http://127.0.0.1:8000/meeting-advisor) |
+
+Use the Contact Advisor README for venv, dependencies, and **`OPENAI_API_KEY`** on that stack.
+
+### Processes (typical local)
+
+| Role | Base URL | Start (Contact Advisor repo root) |
+|------|----------|-------------------------------------|
+| Contact Advisor — WhoIsWhat + **`POST /api/v1/people-intel`** | `http://127.0.0.1:5000` | `python run.py` |
+| WhoIsHoss | `http://127.0.0.1:5002` | `python run_whoishoss.py` |
+| Meeting Advisor — **`POST /api/v1/advise`** | `http://127.0.0.1:5003` | `python run_meeting_advisor.py` |
+
+### Resume Agent `.env`
+
+```env
+MEETING_ADVISOR_URL=http://127.0.0.1:5003
+CONTACT_ADVISOR_SERVICE_URL=http://127.0.0.1:5000
+```
+
+`MEETING_ADVISOR_URL` must be the **Meeting Advisor** process base (not Resume Agent on `:8000`) or advise calls return 404. (`WHOISWHAT_SERVICE_URL` is a deprecated alias for `CONTACT_ADVISOR_SERVICE_URL`.) Optional: **`MEETING_ADVISOR_UI_URL`** redirects the browser from GET `/meeting-advisor`; API still uses `MEETING_ADVISOR_URL`.
+
+### Verify
+
+From this repo: `python scripts/check_meeting_advisor_stack.py`. Windows: `.\scripts\start_meeting_advisor.ps1`. Restart Resume Agent after editing `.env`.
 
 ## API highlights
 

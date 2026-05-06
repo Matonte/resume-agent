@@ -12,6 +12,7 @@ Nothing here **requires** AWS or a payment method. Use the **interim** section d
 | One-time job site login | `.\.venv\Scripts\python.exe scripts\login_once.py linkedin` (etc.) |
 | Config | `data\preferences.yaml` + `.env` (copy from `.env.example`) |
 | State on disk | `outputs\` (SQLite + artifacts) and `.playwright\` (cookies) — both gitignored |
+| Optional prep stack | [Contact Advisor](https://github.com/Matonte/contact-advisor) (Meeting Advisor + people-intel) — [setup in main README](../README.md#contact-advisor--meeting-advisor-optional) |
 
 **CI/CD without AWS:** Push to GitHub. Workflows run **pytest** and can **build/push the Docker image to GHCR** using `GITHUB_TOKEN` only. No AWS secrets needed.
 
