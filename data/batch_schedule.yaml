@@ -1,0 +1,6 @@
+window_start: '08:00'
+window_end: '21:00'
+interval_hours: 3
+task_name: resume-agent-daily
+extra_args: --verbose
+execution_time_limit_minutes: 0

@@ -14,6 +14,7 @@ from app.routers.jobs import router as jobs_router
 from app.routers.manual import router as manual_router
 from app.routers.onboarding_api import router as onboarding_router
 from app.routers.profiles_api import router as profiles_router
+from app.routers.batch_schedule import router as batch_schedule_router
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
@@ -49,6 +50,7 @@ app.include_router(auth_router)
 app.include_router(profiles_router)
 app.include_router(jobs_router)
 app.include_router(manual_router)
+app.include_router(batch_schedule_router)
 
 # HTML pages and redirects must be registered *before* mounting /static so the
 # mounted app cannot take precedence in any edge cases (see FastAPI "Mount"
@@ -85,6 +87,12 @@ def review_page() -> HTMLResponse:
 @app.get("/jobs/today", response_class=HTMLResponse)
 def jobs_today_page() -> HTMLResponse:
     html = (TEMPLATES_DIR / "jobs_today.html").read_text(encoding="utf-8")
+    return HTMLResponse(content=html)
+
+
+@app.get("/batch-schedule", response_class=HTMLResponse)
+def batch_schedule_page() -> HTMLResponse:
+    html = (TEMPLATES_DIR / "batch_schedule.html").read_text(encoding="utf-8")
     return HTMLResponse(content=html)
 
 

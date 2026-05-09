@@ -1,4 +1,4 @@
-"""CLI entrypoint run by Windows Task Scheduler at 9:00 AM.
+"""CLI entrypoint for Windows Task Scheduler (see scripts/register_scheduled_task.ps1).
 
 Usage:
     python -m app.jobs.daily_run

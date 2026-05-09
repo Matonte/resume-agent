@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Resume Agent — Batch schedule</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/jobs_today.css" />
+  <link rel="stylesheet" href="/static/batch_schedule.css" />
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <h1>Batch schedule <span class="wordmark-tag" aria-hidden="true">Windows</span></h1>
+        <p class="subtitle">
+          Choose when <code>daily_run</code> should start (local time). Saving writes
+          <code>data/batch_schedule.yaml</code>. <strong>Apply</strong> re-registers the Task Scheduler job
+          on this PC (localhost only).
+        </p>
+      </div>
+      <div class="links">
+        <a href="/account">Account</a>
+        <a href="/jobs/today">Queue</a>
+        <a href="/meeting-advisor">Advisor</a>
+        <a href="/tailor">Intake</a>
+        <a href="/">Review</a>
+        <a href="/docs" target="_blank">Docs</a>
+      </div>
+    </header>
+
+    <p id="schedule-context" class="panel muted context-banner" role="status"></p>
+
+    <section class="panel">
+      <h2 class="panel-heading">Run window</h2>
+      <form id="schedule-form" class="form-grid schedule-form">
+        <label>
+          <span>First start (24h)</span>
+          <input name="window_start" type="time" step="60" required />
+        </label>
+        <label>
+          <span>Latest start</span>
+          <input name="window_end" type="time" step="60" required />
+        </label>
+        <label>
+          <span>Every (hours)</span>
+          <input name="interval_hours" type="number" min="1" max="24" required />
+        </label>
+        <label>
+          <span>Task name</span>
+          <input name="task_name" type="text" required autocomplete="off" />
+        </label>
+        <label class="full-width">
+          <span>Extra <code>daily_run</code> args</span>
+          <input name="extra_args" type="text" placeholder="--verbose" autocomplete="off" />
+        </label>
+        <label>
+          <span>Max run (minutes, 0 = none)</span>
+          <input name="execution_time_limit_minutes" type="number" min="0" max="10080" required />
+        </label>
+        <div class="full-width run-times">
+          <span class="field-label">Starts each day</span>
+          <code id="run-times" class="run-times-value">—</code>
+        </div>
+        <div class="full-width actions">
+          <button type="submit">Save to YAML</button>
+          <button type="button" id="apply-btn" class="secondary">Apply to Task Scheduler</button>
+        </div>
+      </form>
+    </section>
+
+    <pre id="apply-output" class="panel apply-output" hidden></pre>
+  </main>
+
+  <script src="/static/onboarding_banner.js"></script>
+  <script src="/static/batch_schedule.js"></script>
+</body>
+</html>

@@ -18,6 +18,10 @@ def _allow_without_onboarding(path: str) -> bool:
         return True
     if path.startswith("/account"):
         return True
+    if path.startswith("/batch-schedule"):
+        return True
+    if path.startswith("/api/batch-schedule"):
+        return True
     if path.startswith("/api/auth"):
         return True
     if path.startswith("/static") or path.startswith("/api/static"):
