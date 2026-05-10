@@ -17,6 +17,9 @@ from pydantic import BaseModel, Field, field_validator
 
 DEFAULT_PATH = Path(__file__).resolve().parents[2] / "data" / "preferences.yaml"
 
+# LinkedIn /jobs/search geo filter when ``sources.linkedin.geo_id`` is unset.
+DEFAULT_LINKEDIN_JOBS_GEO_ID = "103644278"
+
 
 class CandidateInfo(BaseModel):
     name: str = ""
@@ -45,6 +48,9 @@ class Exclude(BaseModel):
 class SourceConfig(BaseModel):
     enabled: bool = True
     queries: List[str] = Field(default_factory=list)
+    #: LinkedIn jobs search URL ``geoId`` (numeric). Empty = use
+    #: ``DEFAULT_LINKEDIN_JOBS_GEO_ID`` (US). Ignored by other sources.
+    geo_id: str = ""
 
 
 class ScraperThrottle(BaseModel):
@@ -101,6 +107,13 @@ class Preferences(BaseModel):
     def queries_for(self, source: str) -> List[str]:
         cfg = self.sources.get(source)
         return list(cfg.queries) if cfg and cfg.enabled else []
+
+    def effective_linkedin_geo_id(self) -> str:
+        cfg = self.sources.get("linkedin")
+        if not cfg:
+            return DEFAULT_LINKEDIN_JOBS_GEO_ID
+        g = (cfg.geo_id or "").strip()
+        return g or DEFAULT_LINKEDIN_JOBS_GEO_ID
 
     def is_excluded_company(self, company: str) -> bool:
         if not company:
@@ -164,6 +177,56 @@ def load_preferences(path: Optional[Path | str] = None) -> Preferences:
     return Preferences.model_validate(raw)
 
 
+def patch_job_search_geography(
+    *,
+    locations: List[str],
+    remote_ok: bool,
+    linkedin_geo_id: str,
+    path: Optional[Path | str] = None,
+) -> Preferences:
+    """Update ``targets.locations``, ``targets.remote_ok``, and
+    ``sources.linkedin.geo_id`` in ``preferences.yaml``.
+
+    Loads the existing YAML mapping, applies those keys only, validates the
+    full document as `Preferences`, then writes it back. Inline comments in
+    the file are not preserved (PyYAML limitation).
+    """
+    resolved = Path(path) if path else DEFAULT_PATH
+    if resolved.exists():
+        raw_any = yaml.safe_load(resolved.read_text(encoding="utf-8"))
+    else:
+        raw_any = {}
+    if raw_any is None:
+        raw_any = {}
+    if not isinstance(raw_any, dict):
+        raise ValueError("preferences.yaml must be a YAML mapping at the top level")
+    raw: Dict[str, Any] = raw_any
+
+    targets = dict(raw.get("targets") or {})
+    cleaned = [str(x).strip() for x in locations if str(x).strip()]
+    targets["locations"] = cleaned
+    targets["remote_ok"] = remote_ok
+    raw["targets"] = targets
+
+    sources = dict(raw.get("sources") or {})
+    linkedin = dict(sources.get("linkedin") or {})
+    gid = (linkedin_geo_id or "").strip()
+    if gid:
+        linkedin["geo_id"] = gid
+    else:
+        linkedin.pop("geo_id", None)
+    sources["linkedin"] = linkedin
+    raw["sources"] = sources
+
+    prefs = Preferences.model_validate(raw)
+    resolved.parent.mkdir(parents=True, exist_ok=True)
+    resolved.write_text(
+        yaml.safe_dump(raw, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+    return prefs
+
+
 __all__ = [
     "Preferences",
     "CandidateInfo",
@@ -174,5 +237,7 @@ __all__ = [
     "OutreachForJobConfig",
     "load_preferences",
     "merge_preferences_candidate",
+    "patch_job_search_geography",
     "DEFAULT_PATH",
+    "DEFAULT_LINKEDIN_JOBS_GEO_ID",
 ]

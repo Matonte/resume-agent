@@ -27,12 +27,15 @@ from app.scrapers.registry import register
 logger = logging.getLogger(__name__)
 
 BASE = "https://www.linkedin.com"
-SEARCH_URL = BASE + "/jobs/search/?keywords={q}&f_TPR=r86400&geoId=103644278"  # last 24h, US
+SEARCH_URL_TEMPLATE = (
+    BASE + "/jobs/search/?keywords={q}&f_TPR=r86400&geoId={geo_id}"  # last 24h
+)
 
 
-def _search_url(query: str) -> str:
+def _search_url(query: str, prefs) -> str:
     q = urllib.parse.quote_plus(query or "senior backend engineer")
-    return SEARCH_URL.format(q=q)
+    geo_id = prefs.effective_linkedin_geo_id()
+    return SEARCH_URL_TEMPLATE.format(q=q, geo_id=geo_id)
 
 
 class LinkedInScraper:
@@ -60,7 +63,7 @@ class LinkedInScraper:
     def _scrape_query(self, context, query: str, cap: int, prefs) -> List[RawJob]:
         page = context.new_page()
         try:
-            page.goto(_search_url(query), wait_until="domcontentloaded", timeout=45000)
+            page.goto(_search_url(query, prefs), wait_until="domcontentloaded", timeout=45000)
             human_sleep(prefs)
             try:
                 for _ in range(4):

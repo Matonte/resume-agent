@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Resume Agent — Search geography</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/jobs_today.css" />
+  <link rel="stylesheet" href="/static/batch_schedule.css" />
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <h1>Search geography <span class="wordmark-tag" aria-hidden="true">Filters</span></h1>
+        <p class="subtitle">
+          Control where listings must look acceptable <strong>after</strong> scrape
+          (<code>targets.locations</code> + remote) and LinkedIn’s <strong>search region</strong>
+          (<code>geoId</code>). Jobright still follows your account + query text.
+        </p>
+      </div>
+      <div class="links">
+        <a href="/account">Account</a>
+        <a href="/jobs/today">Queue</a>
+        <a href="/batch-schedule">Schedule</a>
+        <a href="/meeting-advisor">Advisor</a>
+        <a href="/tailor">Intake</a>
+        <a href="/">Review</a>
+        <a href="/docs" target="_blank">Docs</a>
+      </div>
+    </header>
+
+    <p id="save-note" class="panel muted context-banner" role="note"></p>
+
+    <section class="panel">
+      <h2 class="panel-heading">Location filter (all sources)</h2>
+      <p class="muted">
+        Jobs whose location line does not match any entry below are dropped—unless
+        <strong>Allow remote</strong> is on and the listing mentions “remote”.
+        Blank location on a job is kept.
+      </p>
+      <form id="geo-form" class="form-grid schedule-form">
+        <label class="full-width">
+          <span>Allowed locations (one per line)</span>
+          <textarea name="locations" rows="6" class="locations-textarea" placeholder="New York, NY&#10;Jersey City, NJ&#10;Remote (US)"></textarea>
+        </label>
+        <label class="full-width checkbox-row">
+          <input name="remote_ok" type="checkbox" />
+          <span>Allow listings that mention remote</span>
+        </label>
+
+        <h2 class="panel-heading full-width">LinkedIn search region</h2>
+        <p class="muted full-width">
+          Sets the <code>geoId</code> in the LinkedIn job search URL (last 24h filter unchanged).
+          Leave empty to use the default (<span id="default-geo-label"></span>).
+          Find a region id by running a jobs search on LinkedIn and copying <code>geoId</code> from the address bar.
+        </p>
+        <label class="full-width">
+          <span>LinkedIn <code>geoId</code> (optional)</span>
+          <input name="linkedin_geo_id" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="" autocomplete="off" />
+        </label>
+        <p class="muted full-width">
+          Effective id used in search: <code id="effective-geo">—</code>
+        </p>
+
+        <div class="full-width actions">
+          <button type="submit">Save to preferences.yaml</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <script src="/static/onboarding_banner.js"></script>
+  <script src="/static/job_search_geography.js"></script>
+</body>
+</html>

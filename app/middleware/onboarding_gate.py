@@ -22,6 +22,10 @@ def _allow_without_onboarding(path: str) -> bool:
         return True
     if path.startswith("/api/batch-schedule"):
         return True
+    if path.startswith("/job-search-geography"):
+        return True
+    if path.startswith("/api/job-search-geography"):
+        return True
     if path.startswith("/api/auth"):
         return True
     if path.startswith("/static") or path.startswith("/api/static"):
