@@ -8,7 +8,7 @@ import sqlite3
 from typing import List, Sequence, Tuple
 
 from app.config import settings
-from app.services.llm import embed_texts
+from app.services import llm
 from app.services.onboarding_bootstrap import read_resume_file
 
 logger = logging.getLogger(__name__)
@@ -91,7 +91,7 @@ def rebuild_profile_rag(conn: sqlite3.Connection, profile_id: int, user_id: int)
     all_emb: List[List[float]] = []
     for i in range(0, len(texts), _EMBED_BATCH):
         batch = texts[i : i + _EMBED_BATCH]
-        got = embed_texts(batch)
+        got = llm.embed_texts(batch)
         if got is None:
             logger.warning("resume_rag: embedding failed; leaving existing chunks unchanged")
             return -1
@@ -138,7 +138,7 @@ def retrieve_rag_context(
     if not rows:
         return ""
 
-    qemb = embed_texts([(query_text or "").strip()[:8000]])
+    qemb = llm.embed_texts([(query_text or "").strip()[:8000]])
     if not qemb or len(qemb) != 1:
         return ""
 
