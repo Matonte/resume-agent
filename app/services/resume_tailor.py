@@ -159,6 +159,8 @@ def generate_resume_draft(
     job_description: str,
     archetype_id: str,
     use_llm: bool = False,
+    *,
+    profile_id: Optional[int] = None,
 ) -> Dict:
     ranked = _rank_bullets(job_description)
 
@@ -208,6 +210,17 @@ def generate_resume_draft(
     final_bullets = picked
     llm_applied = False
 
+    rag_context = ""
+    if profile_id is not None:
+        try:
+            from app.services.resume_rag import retrieve_rag_context
+            from app.storage.db import get_conn
+
+            with get_conn() as conn:
+                rag_context = retrieve_rag_context(conn, profile_id, job_description)
+        except Exception:
+            rag_context = ""
+
     if use_llm:
         # Lazy import so the base tailor stays usable without the openai dep.
         from app.services.llm_rewrite import (
@@ -217,8 +230,13 @@ def generate_resume_draft(
         )
 
         if is_available():
-            final_summary = rewrite_summary(deterministic_summary, job_description, archetype_id)
-            final_bullets = rewrite_bullets(picked, job_description)
+            final_summary = rewrite_summary(
+                deterministic_summary,
+                job_description,
+                archetype_id,
+                rag_context=rag_context,
+            )
+            final_bullets = rewrite_bullets(picked, job_description, rag_context=rag_context)
             llm_applied = (
                 final_summary != deterministic_summary or final_bullets != picked
             )

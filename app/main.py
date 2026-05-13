@@ -16,6 +16,7 @@ from app.routers.onboarding_api import router as onboarding_router
 from app.routers.profiles_api import router as profiles_router
 from app.routers.batch_schedule import router as batch_schedule_router
 from app.routers.job_search_geo import router as job_search_geo_router
+from app.routers.archetype_templates_api import router as archetype_templates_router
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
@@ -53,6 +54,7 @@ app.include_router(jobs_router)
 app.include_router(manual_router)
 app.include_router(batch_schedule_router)
 app.include_router(job_search_geo_router)
+app.include_router(archetype_templates_router)
 
 # HTML pages and redirects must be registered *before* mounting /static so the
 # mounted app cannot take precedence in any edge cases (see FastAPI "Mount"

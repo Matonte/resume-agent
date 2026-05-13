@@ -130,6 +130,12 @@ def run_daily(
         # 2. Filter.
         filtered = _filter_raw(raw, prefs)
 
+        rag_pid = (
+            active_profile.id
+            if active_profile and not active_profile.use_builtin
+            else None
+        )
+
         # 3. Tailor + persist.
         tailored: List[_ScoredTailoredJob] = []
         for r in filtered:
@@ -142,6 +148,7 @@ def run_daily(
                         run_date,
                         user_id=uid,
                         use_llm=use_llm,
+                        profile_id=rag_pid,
                     )
                 )
             except Exception as exc:  # noqa: BLE001
@@ -329,6 +336,7 @@ def _tailor_one(
     *,
     user_id: int,
     use_llm: bool,
+    profile_id: Optional[int] = None,
 ) -> _ScoredTailoredJob:
     """Produce a fully tailored package for a single RawJob.
 
@@ -343,6 +351,7 @@ def _tailor_one(
         run_date=run_date,
         user_id=user_id,
         use_llm=use_llm,
+        profile_id=profile_id,
     )
     return _ScoredTailoredJob(record=tailored.record, raw=raw)
 

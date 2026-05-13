@@ -375,3 +375,69 @@
   max-width: 52em;
   line-height: 1.35;
 }
+
+/* Queue page — geographic restrictions (collapsible) */
+
+.queue-geo-panel {
+  padding-bottom: 10px;
+}
+
+.queue-geo-details {
+  border: none;
+  padding: 0;
+}
+
+.queue-geo-details[open] .queue-geo-summary {
+  margin-bottom: 12px;
+}
+
+.queue-geo-summary {
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--fg);
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px 14px;
+}
+
+.queue-geo-summary::-webkit-details-marker {
+  display: none;
+}
+
+.queue-geo-summary::before {
+  content: "▸";
+  font-family: var(--font-mono);
+  color: var(--accent);
+  display: inline-block;
+  width: 1em;
+  transition: transform 0.15s ease;
+}
+
+.queue-geo-details[open] .queue-geo-summary::before {
+  transform: rotate(90deg);
+}
+
+.queue-geo-summary-hint {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--fg-dim);
+}
+
+.queue-geo-note {
+  margin: 0 0 10px 0;
+  min-height: 1.2em;
+}
+
+.queue-geo-subheading {
+  margin-top: 8px;
+  margin-bottom: 0;
+  font-size: 0.85rem;
+}

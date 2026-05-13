@@ -165,6 +165,8 @@ def rewrite_summary(
     deterministic_summary: str,
     job_description: str,
     archetype_id: str,
+    *,
+    rag_context: str = "",
 ) -> str:
     """Polish the summary to mirror the JD's language. Falls back to the
     deterministic summary on any failure."""
@@ -177,9 +179,19 @@ def rewrite_summary(
     specializations = ", ".join(archetype.get("specializations", []) or [])
     focus_traits = ", ".join(archetype.get("focus_traits", []) or [])
 
+    rag_block = ""
+    if (rag_context or "").strip():
+        rag_block = (
+            "\n\nAdditional verbatim excerpts from the candidate's uploaded résumés "
+            "(grounding only — do not claim facts that are not supported by the baseline "
+            "summary or these excerpts):\n---\n"
+            f"{rag_context.strip()[:6000]}\n---\n"
+        )
+
     user_prompt = (
         f"Job description:\n---\n{job_description.strip()[:4000]}\n---\n\n"
         f"Current summary (deterministic baseline):\n---\n{deterministic_summary.strip()}\n---\n\n"
+        f"{rag_block}"
         f"Archetype positioning hints — scale phrase: '{scale}'; domain: '{domain}'; "
         f"specializations: {specializations}; focus traits: {focus_traits}.\n\n"
         "Rewrite the summary as EXACTLY 2 short sentences using this shape:\n"
@@ -200,7 +212,7 @@ def rewrite_summary(
     if not candidate:
         return deterministic_summary
 
-    allowed = _truth_allowed_tokens()
+    allowed = _truth_allowed_tokens() | _tokens_in(rag_context)
     # Summaries get a looser budget: their whole job is to mirror JD language.
     if not _is_safe_rewrite(deterministic_summary, candidate, allowed, max_new_material=6):
         return deterministic_summary
@@ -210,6 +222,8 @@ def rewrite_summary(
 def rewrite_bullets(
     source_bullets: List[str],
     job_description: str,
+    *,
+    rag_context: str = "",
 ) -> List[str]:
     """Rewrite each bullet to mirror JD language. Per-bullet guardrails:
     a single unsafe rewrite falls back to the original for that bullet only."""
@@ -219,8 +233,16 @@ def rewrite_bullets(
         return list(source_bullets)
 
     numbered = "\n".join(f"{i + 1}. {b}" for i, b in enumerate(source_bullets))
+    rag_block = ""
+    if (rag_context or "").strip():
+        rag_block = (
+            "\n\nAdditional verbatim excerpts from the candidate's uploaded résumés "
+            "(grounding only):\n---\n"
+            f"{rag_context.strip()[:6000]}\n---\n"
+        )
     user_prompt = (
         f"Job description:\n---\n{job_description.strip()[:4000]}\n---\n\n"
+        f"{rag_block}"
         f"Source bullets (each is a real past-tense accomplishment from a truth model):\n"
         f"---\n{numbered}\n---\n\n"
         "For each bullet, produce a rewrite in the shape of "
@@ -252,7 +274,7 @@ def rewrite_bullets(
     if not isinstance(rewrites, list) or len(rewrites) != len(source_bullets):
         return list(source_bullets)
 
-    allowed = _truth_allowed_tokens() | _tokens_in(job_description)
+    allowed = _truth_allowed_tokens() | _tokens_in(job_description) | _tokens_in(rag_context)
     final: List[str] = []
     for src, rew in zip(source_bullets, rewrites):
         rew_s = (rew or "").strip()

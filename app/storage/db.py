@@ -215,6 +215,45 @@ def _migrate(conn: sqlite3.Connection) -> None:
             )
         if "onboarding_completed_at" not in ucols:
             conn.execute("ALTER TABLE users ADD COLUMN onboarding_completed_at TEXT")
+        if "contribute_learning_opt_in" not in ucols:
+            conn.execute(
+                "ALTER TABLE users ADD COLUMN contribute_learning_opt_in INTEGER NOT NULL DEFAULT 0"
+            )
+
+    if not _table_columns(conn, "resume_rag_chunks"):
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS resume_rag_chunks (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                profile_id      INTEGER NOT NULL,
+                user_id         INTEGER NOT NULL,
+                asset_id        INTEGER,
+                chunk_index     INTEGER NOT NULL DEFAULT 0,
+                label           TEXT NOT NULL DEFAULT '',
+                text            TEXT NOT NULL,
+                embedding_json  TEXT NOT NULL,
+                created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (profile_id) REFERENCES resume_profiles(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (asset_id) REFERENCES user_onboarding_assets(id) ON DELETE SET NULL
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_rag_chunks_profile ON resume_rag_chunks(profile_id)"
+        )
+
+    if not _table_columns(conn, "archetype_source_docx"):
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS archetype_source_docx (
+                filename    TEXT PRIMARY KEY,
+                data        BLOB NOT NULL,
+                byte_size   INTEGER NOT NULL,
+                updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """
+        )
 
     if not _table_columns(conn, "user_onboarding_assets"):
         conn.execute(

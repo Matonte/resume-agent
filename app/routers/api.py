@@ -51,6 +51,8 @@ from app.services.person_profile_bundle import PersonProfileBundleParams, build_
 from app.services.resume_docx import generate_tailored_resume_bytes
 from app.services.resume_tailor import generate_resume_draft
 from app.services.whoiswhat_people_intel import call_people_intel, snippets_from_web_hit
+from app.storage.accounts import rag_profile_id_for_user
+from app.storage.db import get_conn
 
 router = APIRouter()
 
@@ -133,6 +135,12 @@ def _safe_slug(raw: str | None, fallback: str) -> str:
     return slug or fallback
 
 
+def _rag_profile_id(request: Request) -> Optional[int]:
+    uid = int(request.session.get("user_id", settings.default_user_id))
+    with get_conn() as conn:
+        return rag_profile_id_for_user(conn, uid, default_user_id=settings.default_user_id)
+
+
 @router.get("/health", response_model=HealthResponse)
 def health():
     mf = {
@@ -176,8 +184,12 @@ def classify(job: JobInput):
 @router.post("/draft-resume", response_model=ResumeDraftResponse)
 def draft_resume(request: Request, req: ResumeDraftRequest):
     raise_if_onboarding_incomplete(request)
+    rag_pid = _rag_profile_id(request)
     drafted = generate_resume_draft(
-        req.job_description, req.archetype_id, use_llm=req.use_llm
+        req.job_description,
+        req.archetype_id,
+        use_llm=req.use_llm,
+        profile_id=rag_pid,
     )
     return ResumeDraftResponse(**drafted)
 
@@ -350,7 +362,10 @@ def full_draft(request: Request, req: FullDraftRequest):
     classification = classify_job(req.description)
     archetype_id = req.archetype_override or classification.archetype_id
 
-    drafted = generate_resume_draft(req.description, archetype_id, use_llm=req.use_llm)
+    rag_pid = _rag_profile_id(request)
+    drafted = generate_resume_draft(
+        req.description, archetype_id, use_llm=req.use_llm, profile_id=rag_pid
+    )
     resume = ResumeDraftResponse(**drafted)
 
     answer_payload = None
@@ -516,8 +531,12 @@ def generate_resume(request: Request, req: GenerateResumeRequest):
     archetype_id = req.archetype_override or classify_job(description).archetype_id
 
     try:
+        rag_pid = _rag_profile_id(request)
         blob = generate_tailored_resume_bytes(
-            archetype_id, description, use_llm=req.use_llm
+            archetype_id,
+            description,
+            use_llm=req.use_llm,
+            profile_id=rag_pid,
         )
     except FileNotFoundError as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -10,7 +10,6 @@ from pydantic import BaseModel, EmailStr, Field
 
 from app.auth.passwords import hash_password, verify_password
 from app.config import settings
-from app.config import settings
 from app.storage.accounts import (
     User,
     get_profile,
@@ -41,6 +40,10 @@ class LoginBody(BaseModel):
     password: str
 
 
+class ContributionsOptInBody(BaseModel):
+    enabled: bool
+
+
 def _public_user(u: User) -> dict[str, Any]:
     prof = None
     with get_conn() as conn:
@@ -59,6 +62,7 @@ def _public_user(u: User) -> dict[str, Any]:
         "needs_onboarding": user_must_complete_onboarding(
             u, default_user_id=settings.default_user_id
         ),
+        "contribute_learning_opt_in": bool(u.contribute_learning_opt_in),
     }
 
 
@@ -112,6 +116,26 @@ def login(request: Request, body: LoginBody) -> Any:
 def logout(request: Request) -> Any:
     request.session.clear()
     return {"ok": True}
+
+
+@router.patch("/me/contributions-opt-in")
+def patch_contributions_opt_in(request: Request, body: ContributionsOptInBody) -> Any:
+    uid = int(request.session.get("user_id", settings.default_user_id))
+    if uid == settings.default_user_id:
+        raise HTTPException(
+            status_code=400,
+            detail="The default workspace cannot change contribution preferences.",
+        )
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE users SET contribute_learning_opt_in = ? WHERE id = ?",
+            (1 if body.enabled else 0, uid),
+        )
+        conn.commit()
+        u = get_user_by_id(conn, uid)
+    if not u:
+        raise HTTPException(status_code=404, detail="user not found")
+    return {"ok": True, "user": _public_user(u)}
 
 
 @router.get("/me")

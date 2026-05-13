@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/static/styles.css" />
   <link rel="stylesheet" href="/static/jobs_today.css" />
+  <link rel="stylesheet" href="/static/batch_schedule.css" />
 </head>
 <body>
   <main class="shell">
@@ -50,6 +51,44 @@
       </div>
     </section>
 
+    <section class="panel queue-geo-panel">
+      <details id="queue-geo-details" class="queue-geo-details">
+        <summary class="queue-geo-summary">
+          Queue settings — Geographic restrictions
+          <span class="queue-geo-summary-hint">post-run filters + LinkedIn search region</span>
+        </summary>
+        <p id="queue-geo-note" class="muted queue-geo-note" role="note"></p>
+        <p class="muted">
+          Same settings as <a href="/job-search-geography">Search geography</a>. Jobs whose location
+          does not match are dropped from the daily run (unless remote is allowed and the listing says remote).
+          LinkedIn <code>geoId</code> scopes what gets scraped.
+        </p>
+        <form id="queue-geo-form" class="form-grid schedule-form">
+          <label class="full-width">
+            <span>Allowed locations (one per line)</span>
+            <textarea name="locations" rows="5" class="locations-textarea" placeholder="New York, NY&#10;Remote (US)"></textarea>
+          </label>
+          <label class="full-width checkbox-row">
+            <input name="remote_ok" type="checkbox" />
+            <span>Allow listings that mention remote</span>
+          </label>
+          <h3 class="panel-heading full-width queue-geo-subheading">LinkedIn search region</h3>
+          <p class="muted full-width">
+            Optional <code>geoId</code> for LinkedIn job search URL. Empty = default
+            (<span id="queue-default-geo-label"></span>). Effective:
+            <code id="queue-effective-geo">—</code>
+          </p>
+          <label class="full-width">
+            <span>LinkedIn <code>geoId</code></span>
+            <input name="linkedin_geo_id" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="" autocomplete="off" />
+          </label>
+          <div class="full-width actions">
+            <button type="submit">Save to preferences.yaml</button>
+          </div>
+        </form>
+      </details>
+    </section>
+
     <section class="panel">
       <div id="jobs-list" class="jobs-list">
         <div class="empty-state">Loading today's jobs…</div>
@@ -59,5 +98,6 @@
 
   <script src="/static/onboarding_banner.js"></script>
   <script src="/static/jobs_today.js"></script>
+  <script src="/static/queue_geo_settings.js"></script>
 </body>
 </html>

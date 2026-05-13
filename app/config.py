@@ -25,6 +25,9 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 class Settings(BaseModel):
     openai_api_key: str = _strip(os.getenv("OPENAI_API_KEY"))
     model_name: str = _strip(os.getenv("MODEL_NAME")) or "gpt-5.4"
+    openai_embedding_model: str = (
+        _strip(os.getenv("OPENAI_EMBEDDING_MODEL")) or "text-embedding-3-small"
+    )
 
     gmail_address: str = _strip(os.getenv("GMAIL_ADDRESS"))
     gmail_app_password: str = _strip(os.getenv("GMAIL_APP_PASSWORD"))

@@ -217,6 +217,8 @@ def manual_tailor(request: Request, payload: ManualTailorRequest) -> Any:
             prof = get_profile(conn, u.active_profile_id)
     prefs = merge_preferences_candidate(prefs, prof)
 
+    rag_pid = prof.id if prof and not prof.use_builtin else None
+
     run_date = date.today()
     run_id = DailyRun.make_id(run_date, user_id=uid)
     _ensure_run_row(run_id, uid)
@@ -229,6 +231,7 @@ def manual_tailor(request: Request, payload: ManualTailorRequest) -> Any:
             run_date=run_date,
             user_id=uid,
             use_llm=payload.use_llm,
+            profile_id=rag_pid,
         )
     except Exception as exc:  # noqa: BLE001
         logger.exception("manual tailor failed")

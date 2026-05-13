@@ -19,13 +19,12 @@ from __future__ import annotations
 import copy
 import io
 import re
-from pathlib import Path
 from typing import List, Optional
 
 from docx import Document
 from docx.text.paragraph import Paragraph
 
-from app.services.data_loader import load_archetypes, load_truth_model
+from app.services.data_loader import load_truth_model
 from app.services.resume_tailor import (
     _normalize_company,
     draft_summary,
@@ -40,13 +39,9 @@ try:  # LLM is optional; import lazily in the function that uses it.
     )
 except Exception:  # pragma: no cover
     _llm_available = lambda: False  # type: ignore
-    _llm_rewrite_bullets = lambda bullets, jd: bullets  # type: ignore
-    _llm_rewrite_summary = lambda s, jd, a: s  # type: ignore
+    _llm_rewrite_bullets = lambda bullets, jd, rag_context="": bullets  # type: ignore
+    _llm_rewrite_summary = lambda s, jd, a, rag_context="": s  # type: ignore
 
-BASE_DIR = Path(__file__).resolve().parents[2]
-SOURCE_RESUMES_DIR = BASE_DIR / "data" / "source_resumes"
-
-# Match things like "●", "•", "▪", or "o " at start of text.
 _LEADING_BULLET_RE = re.compile(r"^[\s\u00a0]*([\u2022\u25cf\u25a0\u25aa\u2023\u2043\u25e6\-o])\s*")
 
 # Heading markers (case-insensitive "contains").
@@ -165,37 +160,28 @@ def _extract_company_and_title(text: str) -> tuple[str, Optional[str]]:
 # ---------- main entry point ----------
 
 
-def _resolve_template_path(archetype_id: str) -> Path:
-    archetypes = load_archetypes()
-    meta = archetypes.get(archetype_id) or archetypes.get("A_general_ai_platform") or {}
-    filename = meta.get("source_resume")
+def _open_template_document(archetype_id: str) -> Document:
+    """Prefer DOCX bytes from SQLite; fall back to ``data/source_resumes``."""
+    from app.storage.archetype_templates import (
+        SOURCE_RESUMES_DIR,
+        disk_template_candidate_paths,
+        get_archetype_docx_blob,
+        ordered_template_filenames,
+    )
+    from app.storage.db import get_conn
 
-    candidates: List[Path] = []
-    if filename:
-        candidates.append(SOURCE_RESUMES_DIR / filename)
-
-    prefix_map = {
-        "A_general_ai_platform": "MM_Resume_4_9_26_A",
-        "B_fintech_transaction_systems": "MM_Resume_4_9_26_B",
-        "C_data_streaming_systems": "MM_Resume_4_9_26_C",
-        "D_distributed_systems": "MM_Resume_4_9_26_D",
-        "E_staff_backend": "MM_Resume_4_9_26_E",
-        "E_core_backend": "MM_Resume_4_9_26_E",
-        "E_resume": "MM_Resume_4_9_26_E",
-    }
-    prefix = prefix_map.get(archetype_id)
-    if prefix:
-        # Fall back to the first file matching the archetype's letter.
-        for p in sorted(SOURCE_RESUMES_DIR.glob(f"{prefix}*.docx")):
-            candidates.append(p)
-
-    for c in candidates:
-        if c.exists():
-            return c
+    with get_conn() as conn:
+        for fn in ordered_template_filenames(archetype_id, conn):
+            blob = get_archetype_docx_blob(conn, fn)
+            if blob:
+                return Document(io.BytesIO(blob))
+        for path in disk_template_candidate_paths(archetype_id):
+            if path.is_file():
+                return Document(str(path))
 
     raise FileNotFoundError(
         f"No DOCX template found for archetype {archetype_id}. "
-        f"Looked in {SOURCE_RESUMES_DIR}."
+        f"Tried table archetype_source_docx and {SOURCE_RESUMES_DIR}."
     )
 
 
@@ -247,6 +233,8 @@ def _rewrite_experience(
     idx: dict,
     job_description: str,
     use_llm: bool = False,
+    *,
+    rag_context: str = "",
 ) -> int:
     """Return the number of roles whose bullets were rewritten.
 
@@ -288,7 +276,9 @@ def _rewrite_experience(
                     limit=max(target_slot_count, len(current_bullet_indices)),
                 )
                 if use_llm and _llm_available() and bullets:
-                    bullets = _llm_rewrite_bullets(bullets, job_description)
+                    bullets = _llm_rewrite_bullets(
+                        bullets, job_description, rag_context=rag_context
+                    )
 
                 for slot, bullet_idx in enumerate(current_bullet_indices):
                     if slot < len(bullets):
@@ -367,19 +357,41 @@ def generate_tailored_resume_bytes(
     archetype_id: str,
     job_description: str,
     use_llm: bool = False,
+    *,
+    profile_id: Optional[int] = None,
 ) -> bytes:
     """Produce the tailored DOCX as bytes, ready to send over HTTP."""
-    template_path = _resolve_template_path(archetype_id)
-    doc = Document(str(template_path))
+    doc = _open_template_document(archetype_id)
 
     paragraphs = list(doc.paragraphs)
     idx = _find_indices(paragraphs)
 
     summary_text = draft_summary(job_description, archetype_id)
+    rag_context = ""
+    if profile_id is not None:
+        try:
+            from app.services.resume_rag import retrieve_rag_context
+            from app.storage.db import get_conn
+
+            with get_conn() as conn:
+                rag_context = retrieve_rag_context(conn, profile_id, job_description)
+        except Exception:
+            rag_context = ""
     if use_llm and _llm_available():
-        summary_text = _llm_rewrite_summary(summary_text, job_description, archetype_id)
+        summary_text = _llm_rewrite_summary(
+            summary_text,
+            job_description,
+            archetype_id,
+            rag_context=rag_context,
+        )
     _rewrite_summary(paragraphs, summary_text, idx)
-    _rewrite_experience(paragraphs, idx, job_description, use_llm=use_llm)
+    _rewrite_experience(
+        paragraphs,
+        idx,
+        job_description,
+        use_llm=use_llm,
+        rag_context=rag_context,
+    )
     _normalize_stray_bullet_glyphs(doc)
     _remove_duplicate_trailing_blocks(doc)
 

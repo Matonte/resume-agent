@@ -12,6 +12,7 @@ from app.services.onboarding_bootstrap import (
     load_upload_texts_for_user,
     merge_onboarding_profile,
 )
+from app.services.resume_rag import rebuild_profile_rag
 from app.storage.accounts import (
     count_onboarding_assets,
     ensure_onboarding_upload_dir,
@@ -187,6 +188,8 @@ def finish_onboarding(request: Request) -> Any:
         )
         if not ok:
             raise HTTPException(status_code=422, detail=msg)
+
+        rebuild_profile_rag(conn, pid, uid)
 
         mark_onboarding_complete(conn, uid)
 

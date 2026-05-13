@@ -91,6 +91,8 @@ class User:
     created_at: datetime
     requires_onboarding: bool = False
     onboarding_completed_at: Optional[datetime] = None
+    #: Opt-in for future anonymized aggregate learning signals (no effect until wired).
+    contribute_learning_opt_in: bool = False
 
 
 @dataclass
@@ -155,6 +157,7 @@ def _row_user(row: sqlite3.Row) -> User:
         created_at=_parse_dt(row["created_at"]),
         requires_onboarding=_bool_col("requires_onboarding", False),
         onboarding_completed_at=_opt_ts("onboarding_completed_at"),
+        contribute_learning_opt_in=_bool_col("contribute_learning_opt_in", False),
     )
 
 
@@ -318,6 +321,24 @@ def update_profile_candidate(
     conn.commit()
 
 
+def rag_profile_id_for_user(
+    conn: sqlite3.Connection,
+    user_id: int,
+    *,
+    default_user_id: int = 1,
+) -> Optional[int]:
+    """Active on-disk profile id for per-profile RAG; None for built-in workspace."""
+    if user_id == default_user_id:
+        return None
+    u = get_user_by_id(conn, user_id)
+    if not u or not u.active_profile_id:
+        return None
+    prof = get_profile(conn, u.active_profile_id)
+    if not prof or prof.use_builtin:
+        return None
+    return prof.id
+
+
 def user_must_complete_onboarding(u: User, *, default_user_id: int = 1) -> bool:
     """New accounts must finish the onboarding wizard before using the app."""
     if u.id == default_user_id:
@@ -398,6 +419,7 @@ __all__ = [
     "get_user_by_id",
     "insert_onboarding_asset",
     "list_profiles",
+    "rag_profile_id_for_user",
     "onboarding_upload_rel_prefix",
     "profile_disk_dir",
     "count_onboarding_assets",

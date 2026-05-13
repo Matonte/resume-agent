@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 from app.config import settings
 
@@ -122,4 +122,30 @@ def complete_json(
         return None
 
 
-__all__ = ["is_available", "complete_text", "complete_json"]
+def embed_texts(texts: List[str], *, model: Optional[str] = None) -> Optional[List[List[float]]]:
+    """Batch embeddings for RAG. Returns None if the client is unavailable or the call fails."""
+    if not texts:
+        return []
+    if not is_available():
+        return None
+    client = _get_client()
+    if client is None:
+        return None
+    model_name = model or settings.openai_embedding_model
+    try:
+        resp = client.embeddings.create(model=model_name, input=texts)
+        ordered = sorted(resp.data, key=lambda d: d.index)
+        if len(ordered) != len(texts):
+            logger.warning(
+                "Embedding response length mismatch: got %d expected %d",
+                len(ordered),
+                len(texts),
+            )
+            return None
+        return [item.embedding for item in ordered]
+    except Exception as e:  # pragma: no cover - network/SDK
+        logger.warning("Embedding call failed: %s", e)
+        return None
+
+
+__all__ = ["is_available", "complete_text", "complete_json", "embed_texts"]

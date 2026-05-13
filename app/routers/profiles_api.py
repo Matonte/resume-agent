@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.config import settings
+from app.services.resume_rag import rebuild_profile_rag
 from app.storage.accounts import (
     create_extra_profile,
     get_profile_for_user,
@@ -77,6 +78,22 @@ def activate(request: Request, profile_id: int) -> Any:
     if not p:
         raise HTTPException(status_code=404, detail="profile not found")
     return {"ok": True, "active_profile_id": profile_id}
+
+
+@router.post("/{profile_id}/rag/rebuild")
+def rebuild_profile_rag_endpoint(request: Request, profile_id: int) -> Any:
+    uid = _uid(request)
+    with get_conn() as conn:
+        p = get_profile_for_user(conn, uid, profile_id)
+        if not p:
+            raise HTTPException(status_code=404, detail="profile not found")
+        if p.use_builtin:
+            raise HTTPException(
+                status_code=400,
+                detail="Built-in workspace profile has no per-user RAG store.",
+            )
+        n = rebuild_profile_rag(conn, profile_id, uid)
+    return {"ok": True, "chunks_written": n}
 
 
 @router.patch("/{profile_id}/candidate")
