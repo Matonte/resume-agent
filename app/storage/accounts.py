@@ -1,10 +1,16 @@
-"""Users and resume profiles (swappable candidate JSON packs)."""
+"""Users and resume profiles (swappable candidate JSON packs).
+
+Tenant isolation: each registered user's on-disk profile under
+``outputs/user_profiles/<user_id>/<profile_id>/`` holds **only** that user's
+candidate JSON (`master_truth_model.json`, etc.). New profiles are seeded with
+**empty shells**, not a copy of the repo owner's bundled résumé — facts come
+from onboarding merges and (later) per-profile uploads/RAG keyed by profile id.
+"""
 
 from __future__ import annotations
 
 import json
 import re
-import shutil
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime
@@ -12,7 +18,6 @@ from pathlib import Path
 from typing import List, Optional
 
 from app.config import settings
-from app.services.data_context import DEFAULT_CANDIDATE_DATA_DIR
 
 _SLUG_RE = re.compile(r"[^a-z0-9-]+")
 
@@ -25,7 +30,7 @@ def slugify(name: str, fallback: str = "profile") -> str:
 
 USER_PROFILES_ROOT = "user_profiles"
 
-# Files copied into each on-disk profile (candidate-specific).
+# Candidate-specific filenames written under each on-disk profile.
 PROFILE_TEMPLATE_FILES = (
     "master_truth_model.json",
     "story_bank.json",
@@ -33,20 +38,47 @@ PROFILE_TEMPLATE_FILES = (
 )
 
 
+def seed_profile_empty_candidate_pack(dest: Path) -> None:
+    """Write minimal JSON placeholders for a new account profile.
+
+    Does **not** copy ``data/master_truth_model.json`` from the repository —
+    that file belongs to the default/dev workspace only. Registered users get
+    structure-only shells until onboarding (LLM) or manual edits populate facts.
+    """
+    dest.mkdir(parents=True, exist_ok=True)
+    truth = {
+        "candidate": {
+            "preferred_name": "",
+            "years_experience": 0,
+            "headline": "",
+            "skills": {},
+        },
+        "roles": [],
+    }
+    (dest / "master_truth_model.json").write_text(
+        json.dumps(truth, indent=2), encoding="utf-8"
+    )
+    (dest / "story_bank.json").write_text("[]", encoding="utf-8")
+    bank = {
+        "why_this_role": [],
+        "why_this_company": [],
+        "ambiguity_example": [],
+        "ownership_example": [],
+    }
+    (dest / "application_answer_bank.json").write_text(
+        json.dumps(bank, indent=2), encoding="utf-8"
+    )
+
+
+def seed_profile_from_repo_template(dest: Path) -> None:
+    """Backward-compatible name: seeds empty tenant packs only."""
+    seed_profile_empty_candidate_pack(dest)
+
+
 def profile_disk_dir(user_id: int, profile_id: int) -> Path:
     base = settings.outputs_path / USER_PROFILES_ROOT / str(user_id) / str(profile_id)
     base.mkdir(parents=True, exist_ok=True)
     return base
-
-
-def seed_profile_from_repo_template(dest: Path) -> None:
-    """Copy bundled repo `data/` JSON into a new profile folder."""
-    dest.mkdir(parents=True, exist_ok=True)
-    for name in PROFILE_TEMPLATE_FILES:
-        src = DEFAULT_CANDIDATE_DATA_DIR / name
-        if not src.is_file():
-            raise FileNotFoundError(f"missing template data file: {src}")
-        shutil.copy2(src, dest / name)
 
 
 @dataclass
@@ -192,7 +224,7 @@ def create_user_with_profile(
     password_hash: str,
     display_name: str,
 ) -> tuple[int, int]:
-    """Register a new account: user row + first on-disk profile from templates."""
+    """Register a new account: user row + first on-disk profile (empty shells)."""
     cur = conn.execute(
         """
         INSERT INTO users (
@@ -215,7 +247,7 @@ def create_user_with_profile(
     )
     profile_id = int(cur.lastrowid)
     disk = profile_disk_dir(user_id, profile_id)
-    seed_profile_from_repo_template(disk)
+    seed_profile_empty_candidate_pack(disk)
     rel = str(Path(USER_PROFILES_ROOT) / str(user_id) / str(profile_id))
     conn.execute(
         "UPDATE resume_profiles SET rel_storage = ? WHERE id = ?",
@@ -246,7 +278,7 @@ def create_extra_profile(conn: sqlite3.Connection, user_id: int, name: str) -> R
         (slug, profile_id),
     )
     disk = profile_disk_dir(user_id, profile_id)
-    seed_profile_from_repo_template(disk)
+    seed_profile_empty_candidate_pack(disk)
     rel = str(Path(USER_PROFILES_ROOT) / str(user_id) / str(profile_id))
     conn.execute(
         "UPDATE resume_profiles SET rel_storage = ? WHERE id = ?",
@@ -370,6 +402,7 @@ __all__ = [
     "profile_disk_dir",
     "count_onboarding_assets",
     "mark_onboarding_complete",
+    "seed_profile_empty_candidate_pack",
     "seed_profile_from_repo_template",
     "set_active_profile",
     "slugify",

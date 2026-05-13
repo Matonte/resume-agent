@@ -75,6 +75,7 @@ def test_profiles_list_and_activate(client: TestClient) -> None:
 def test_candidate_data_context_per_profile(isolated_outputs, monkeypatch) -> None:
     from app.storage.accounts import create_user_with_profile
     from app.auth.passwords import hash_password
+    import json
 
     with get_conn() as conn:
         uid, pid = create_user_with_profile(
@@ -87,6 +88,9 @@ def test_candidate_data_context_per_profile(isolated_outputs, monkeypatch) -> No
     assert p is not None
     disk = p.effective_candidate_dir()
     assert disk is not None
+    truth = json.loads((disk / "master_truth_model.json").read_text(encoding="utf-8"))
+    assert truth.get("roles") == []
+    assert "matonte" not in json.dumps(truth).lower()
     token = push_candidate_dir(disk)
     try:
         assert get_candidate_data_dir() == disk

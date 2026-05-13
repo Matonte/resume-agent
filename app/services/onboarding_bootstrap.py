@@ -1,4 +1,8 @@
-"""Turn onboarding uploads into profile JSON (master_truth_model, story_bank)."""
+"""Turn onboarding uploads into profile JSON (master_truth_model, story_bank).
+
+Merged content must come **only** from the user's uploaded résumés and job samples —
+never from another tenant's profile or the repo owner's bundled ``data/`` workspace.
+"""
 
 from __future__ import annotations
 
