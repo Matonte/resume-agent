@@ -88,6 +88,15 @@ def test_build_digest_message_multipart() -> None:
     assert "html" in subtypes
 
 
+def test_send_digest_skips_when_daily_digest_disabled(monkeypatch) -> None:
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "daily_digest_email_enabled", False)
+    monkeypatch.setattr(settings, "gmail_address", "me@example.com")
+    monkeypatch.setattr(settings, "gmail_app_password", "secret")
+    assert send_digest(_sample_jobs(), date(2026, 4, 22)) is False
+
+
 def test_send_digest_skips_when_email_not_configured(monkeypatch) -> None:
     from app.config import settings
 

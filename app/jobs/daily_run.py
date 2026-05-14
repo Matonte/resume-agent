@@ -31,7 +31,10 @@ def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     p.add_argument(
         "--no-email",
         action="store_true",
-        help="Skip sending the digest email even if SMTP is configured.",
+        help=(
+            "Skip sending the digest email even if SMTP is configured "
+            "(persistent alternative: set DAILY_DIGEST_EMAIL=0 in .env)."
+        ),
     )
     p.add_argument(
         "--no-llm",

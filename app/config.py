@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 _ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
 # override=False: real process env wins over .env (useful in CI/tests).
@@ -22,6 +22,14 @@ def _strip(val: str | None) -> str:
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
+def _daily_digest_email_enabled_from_env() -> bool:
+    """Unset env → enabled; set to 0/false/no/off/disabled → disabled."""
+    raw = _strip(os.getenv("DAILY_DIGEST_EMAIL"))
+    if not raw:
+        return True
+    return raw.lower() not in ("0", "false", "no", "off", "disabled")
+
+
 class Settings(BaseModel):
     openai_api_key: str = _strip(os.getenv("OPENAI_API_KEY"))
     model_name: str = _strip(os.getenv("MODEL_NAME")) or "gpt-5.4"
@@ -31,6 +39,8 @@ class Settings(BaseModel):
 
     gmail_address: str = _strip(os.getenv("GMAIL_ADDRESS"))
     gmail_app_password: str = _strip(os.getenv("GMAIL_APP_PASSWORD"))
+    #: When False, ``send_digest`` never connects to SMTP (see ``DAILY_DIGEST_EMAIL``).
+    daily_digest_email_enabled: bool = Field(default_factory=_daily_digest_email_enabled_from_env)
     dashboard_base_url: str = _strip(os.getenv("DASHBOARD_BASE_URL")) or "http://127.0.0.1:8000"
 
     outputs_dir: str = _strip(os.getenv("OUTPUTS_DIR")) or str(_REPO_ROOT / "outputs")

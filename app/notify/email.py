@@ -3,6 +3,12 @@
 Gmail requires an App Password (not your regular password) for SMTP. Set
 `GMAIL_ADDRESS` and `GMAIL_APP_PASSWORD` in `.env`. The digest links each
 job back to the local dashboard at `DASHBOARD_BASE_URL/jobs/today`.
+
+SMTP uses **port 465** (implicit TLS / SMTPS), not 587 — blocking only 587
+will not stop this client.
+
+To stop digests without removing credentials, set ``DAILY_DIGEST_EMAIL=0`` or
+run ``daily_run`` with ``--no-email``.
 """
 
 from __future__ import annotations
@@ -141,7 +147,13 @@ def send_digest(
     When `GMAIL_ADDRESS` / `GMAIL_APP_PASSWORD` are not configured we log a
     warning and return False. The runner treats a False here as a non-fatal
     skip (it still records the run as complete).
+
+    When ``settings.daily_digest_email_enabled`` is False (``DAILY_DIGEST_EMAIL=0``),
+    we skip without contacting SMTP.
     """
+    if not settings.daily_digest_email_enabled:
+        logger.info("Daily digest email disabled (DAILY_DIGEST_EMAIL); skipping send")
+        return False
     if not settings.email_configured:
         logger.warning("Email not configured (GMAIL_ADDRESS/GMAIL_APP_PASSWORD); skipping digest")
         return False
