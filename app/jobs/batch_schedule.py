@@ -1,8 +1,10 @@
-"""Local batch run schedule for Windows Task Scheduler (UI + ``data/batch_schedule.yaml``).
+"""Batch schedule preferences (``data/batch_schedule.yaml``) + optional Windows Apply.
 
-The daily pipeline is still ``python -m app.jobs.daily_run``; this module stores when
-it should fire and drives ``scripts/register_scheduled_task.ps1`` when you click
-**Apply** in the UI.
+The pipeline itself is always ``python -m app.jobs.daily_run`` (or embedded
+``DAILY_RUN_WITH_SERVER=1`` while uvicorn runs). This module holds UI-editable
+timing hints and, **only on Windows localhost**, runs ``register_scheduled_task.ps1``
+when you click **Apply**. On Linux or hosted VMs, wire the same CLI into cron,
+Kubernetes, or your platform scheduler instead — no OS-specific code required.
 """
 
 from __future__ import annotations
@@ -24,7 +26,7 @@ _HHMM = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
 
 
 class BatchScheduleConfig(BaseModel):
-    """When to run ``daily_run`` via the Windows scheduled task."""
+    """Preferred local run window (saved YAML); Windows Apply maps this to Task Scheduler."""
 
     window_start: str = Field(default="08:00", description="First start (24h HH:mm).")
     window_end: str = Field(
@@ -40,7 +42,7 @@ class BatchScheduleConfig(BaseModel):
     execution_time_limit_minutes: int = Field(
         default=0,
         ge=0,
-        description="0 = no Task Scheduler time limit.",
+        description="0 = no limit (Windows Task Scheduler only, when Apply is used).",
     )
 
     @field_validator("window_start", "window_end")

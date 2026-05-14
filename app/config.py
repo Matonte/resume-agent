@@ -63,6 +63,18 @@ class Settings(BaseModel):
 
     # Scheduled daily_run uses this account unless overridden on the CLI.
     daily_run_user_id: int = int(_strip(os.getenv("DAILY_RUN_USER_ID")) or "1")
+    #: When True, uvicorn runs ``daily_run`` on a timer while the server is up only.
+    #: Disable any other orchestrator that runs ``daily_run`` (cron, K8s CronJob,
+    #: Windows Task Scheduler, etc.) or jobs will duplicate.
+    daily_run_with_server: bool = _strip(os.getenv("DAILY_RUN_WITH_SERVER")).lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    #: Seconds between embedded runs when ``daily_run_with_server`` (minimum 300 enforced).
+    daily_run_embedded_interval_seconds: int = int(
+        _strip(os.getenv("DAILY_RUN_EMBEDDED_INTERVAL_SECONDS")) or "10800"
+    )
     playwright_profiles_dir: str = (
         _strip(os.getenv("PLAYWRIGHT_PROFILES_DIR")) or str(_REPO_ROOT / ".playwright")
     )

@@ -6,7 +6,10 @@
 .DESCRIPTION
   Creates a task named "resume-agent-daily" that runs
   `python -m app.jobs.daily_run` using the repo's .venv (falls back to `python`
-  on PATH). Existing task with the same name is replaced.
+  on PATH).   Existing task with the same name is replaced.
+
+  If you set DAILY_RUN_WITH_SERVER=1 in .env (embedded scheduler in uvicorn), remove or
+  disable this scheduled task so daily_run does not run twice.
 
   Default schedule: every 3 hours starting at 08:00 local time, with run times
   at 08:00, 11:00, 14:00, 17:00, and 20:00 (last start at or before -WindowEnd).

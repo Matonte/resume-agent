@@ -46,7 +46,9 @@
   function setContext(data) {
     const parts = [];
     if (!data.platform_is_windows) {
-      parts.push("Task Scheduler apply is only available on Windows.");
+      parts.push(
+        "Task Scheduler Apply is Windows-only. On Linux or cloud hosts use DAILY_RUN_WITH_SERVER=1 with uvicorn, or schedule python -m app.jobs.daily_run (cron, Kubernetes, etc.). Save to YAML still works everywhere."
+      );
     } else if (!data.client_is_loopback) {
       parts.push(
         "Open this page on the machine at http://127.0.0.1:8000 (not via LAN hostname) to enable Apply."

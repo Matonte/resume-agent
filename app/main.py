@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -6,6 +7,10 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import settings
+from app.daily_run_scheduler import (
+    start_embedded_daily_run_scheduler,
+    stop_embedded_daily_run_scheduler,
+)
 from app.middleware.onboarding_gate import OnboardingGateMiddleware
 from app.middleware.profile_bind import ProfileDataMiddleware
 from app.routers.api import router
@@ -32,7 +37,19 @@ def _meeting_advisor_page_response():
     return HTMLResponse(content=html)
 
 
-app = FastAPI(title="Resume Agent Starter", version="0.4.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    start_embedded_daily_run_scheduler()
+    yield
+    stop_embedded_daily_run_scheduler()
+
+
+app = FastAPI(
+    title="Resume Agent Starter",
+    version="0.4.0",
+    lifespan=lifespan,
+)
+
 
 # Last-added middleware runs first on the request. Session must run before
 # ProfileDataMiddleware reads request.session.

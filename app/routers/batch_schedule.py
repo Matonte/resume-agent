@@ -1,4 +1,9 @@
-"""API + helpers for editing the Windows batch schedule from the UI."""
+"""API for editing batch schedule YAML; **Apply** targets Windows Task Scheduler only.
+
+Saving schedule is portable (YAML only). The POST ``apply-windows-task`` helper exists
+for developer machines on Windows; production Linux/cloud scheduling uses env
+``DAILY_RUN_WITH_SERVER``, cron, Kubernetes CronJob, etc. — see ``app/jobs/daily_run.py``.
+"""
 
 from __future__ import annotations
 
@@ -80,6 +85,9 @@ def apply_windows_task(request: Request) -> JSONResponse:
             detail=(
                 "Apply is only allowed on Windows from a loopback client, "
                 "and scripts/register_scheduled_task.ps1 must exist. "
+                "On Linux or cloud hosts schedule daily_run with DAILY_RUN_WITH_SERVER=1 "
+                "(single-worker uvicorn), cron, Kubernetes CronJob, or another orchestrator — "
+                "see python -m app.jobs.daily_run --help. "
                 f"context={ctx!r}"
             ),
         )

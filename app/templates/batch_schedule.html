@@ -15,11 +15,11 @@
   <main class="shell">
     <header class="topbar">
       <div>
-        <h1>Batch schedule <span class="wordmark-tag" aria-hidden="true">Windows</span></h1>
+        <h1>Batch schedule <span class="wordmark-tag" aria-hidden="true">Windows helper</span></h1>
         <p class="subtitle">
           Choose when <code>daily_run</code> should start (local time). Saving writes
-          <code>data/batch_schedule.yaml</code>. <strong>Apply</strong> re-registers the Task Scheduler job
-          on this PC (localhost only).
+          <code>data/batch_schedule.yaml</code>. <strong>Apply</strong> only re-registers Windows Task Scheduler on this PC (localhost).
+          On Linux or in the cloud, run the same pipeline with <code>DAILY_RUN_WITH_SERVER=1</code>, cron, Kubernetes, or <code>python -m app.jobs.daily_run</code> — no Windows required.
         </p>
       </div>
       <div class="links">

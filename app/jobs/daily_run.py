@@ -1,4 +1,9 @@
-"""CLI entrypoint for Windows Task Scheduler (see scripts/register_scheduled_task.ps1).
+"""CLI entrypoint for the daily scrape/tailor pipeline (portable).
+
+Use from any host orchestrator: systemd timer, cron, Kubernetes CronJob,
+CI, or manual runs. Optional **Windows only**: ``scripts/register_scheduled_task.ps1``
+and the dashboard **Apply** button register Task Scheduler from saved YAML —
+that path is convenience for local PCs, not required on Linux or in cloud VMs.
 
 Usage:
     python -m app.jobs.daily_run
