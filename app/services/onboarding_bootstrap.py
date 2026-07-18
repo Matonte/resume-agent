@@ -15,6 +15,7 @@ from docx import Document
 
 from app.config import settings
 from app.services import llm as llm_mod
+from app.services.evidence_schema import SCHEMA_VERSION, normalize_truth_model
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +97,7 @@ def merge_onboarding_profile(
             return False, "LLM output was missing roles; try again with a clearer résumé."
         if not isinstance(stories, list):
             stories = template_story
+        truth = normalize_truth_model(truth, default_source="onboarding_resume")
         truth_path.write_text(json.dumps(truth, indent=2), encoding="utf-8")
         story_path.write_text(json.dumps(stories, indent=2), encoding="utf-8")
         return True, "Saved your profile from the résumé and job samples."
@@ -136,9 +138,16 @@ def _llm_build_truth_and_stories(
         "or roles not supported by the résumé. "
         "Return one JSON object with exactly two keys: "
         '"master_truth_model" and "story_bank". '
-        "master_truth_model must include candidate (with preferred_name, skills buckets as in typical resumes) "
-        "and roles[]; each role: company, title, location, start, end, is_current, "
-        "core_facts (4–8 outcome bullets), tech[], themes[], optional signature_project. "
+        f"master_truth_model.schema_version must be {SCHEMA_VERSION}. "
+        "master_truth_model must include candidate (with preferred_name, skills buckets as in typical resumes), "
+        "profile_layers: {verified_facts: [], inferred_profile: [], user_preferences: {}}, "
+        "and roles[]; each role: id (stable slug), company, title, location, start, end, is_current, "
+        "achievements (4–8 objects), tech[], themes[], optional signature_project. "
+        "Each achievement MUST be "
+        '{id, text, status: "verified"|"inferred", evidence_source, confidence (0-1), technologies[]}. '
+        "evidence_source should name which résumé block or filename the claim came from when possible. "
+        "Also set core_facts to the same achievement texts as plain strings for compatibility. "
+        "Put guesswork (seniority, target roles) only under profile_layers.inferred_profile, never as verified achievements. "
         "story_bank is an array of {id, title, summary, situation, task, actions, results, tags, best_for} "
         "derived from real résumé content; ids like slug_lowercase."
     )

@@ -20,7 +20,9 @@ def load_json(relative_path: str, *, shared: bool = False):
 
 
 def load_truth_model():
-    return load_json("master_truth_model.json")
+    from app.services.evidence_schema import normalize_truth_model
+
+    return normalize_truth_model(load_json("master_truth_model.json"))
 
 
 def load_story_bank():

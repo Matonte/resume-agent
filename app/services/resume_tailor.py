@@ -20,6 +20,11 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 from app.services.data_loader import load_archetypes, load_truth_model
+from app.services.evidence_schema import (
+    core_fact_texts,
+    evidence_for_bullet,
+    iter_achievements,
+)
 
 _STOPWORDS = {
     "the", "and", "for", "with", "that", "this", "from", "into", "about",
@@ -39,6 +44,7 @@ def _tokenize(text: str) -> List[str]:
 @dataclass
 class _ScoredBullet:
     bullet: str
+    evidence_id: str
     role_company: str
     role_index: int
     score: float
@@ -51,7 +57,7 @@ def _score_role(role: Dict, job_tokens: set[str]) -> Tuple[float, List[str]]:
     for key in ("themes", "tech"):
         for t in role.get(key, []):
             role_terms.update(_tokenize(t))
-    for fact in role.get("core_facts", []):
+    for fact in core_fact_texts(role):
         role_terms.update(_tokenize(fact))
 
     matched = sorted(job_tokens & role_terms)
@@ -80,12 +86,16 @@ def _rank_bullets(job_description: str) -> List[_ScoredBullet]:
         is_current = bool(role.get("is_current")) or (idx == 0 and not role.get("end"))
         recency_bonus = max(0.0, 1.5 - idx * 0.25)
         current_bonus = 2.0 if is_current else 0.0
-        for fact in role.get("core_facts", []):
+        for ach in iter_achievements(role):
+            fact = ach.get("text") or ""
+            if not fact:
+                continue
             fact_tokens = set(_tokenize(fact))
             fact_match = len(fact_tokens & job_tokens)
             ranked.append(
                 _ScoredBullet(
                     bullet=fact,
+                    evidence_id=str(ach.get("id") or ""),
                     role_company=company,
                     role_index=idx,
                     is_current=is_current,
@@ -168,6 +178,7 @@ def generate_resume_draft(
     # past roles; older companies are capped at 2 so the draft doesn't get
     # pulled backward in time.
     picked: List[str] = []
+    picked_ids: List[str] = []
     per_company: Dict[str, int] = {}
     for b in ranked:
         if b.score <= 0:
@@ -176,6 +187,8 @@ def generate_resume_draft(
         if per_company.get(b.role_company, 0) >= company_cap:
             continue
         picked.append(b.bullet)
+        if b.evidence_id:
+            picked_ids.append(b.evidence_id)
         per_company[b.role_company] = per_company.get(b.role_company, 0) + 1
         if len(picked) >= 10:
             break
@@ -194,16 +207,23 @@ def generate_resume_draft(
         current_count = sum(1 for p in picked if _normalize_company(current_company) == _normalize_company(_company_for_bullet(p, roles)))
         if current_count < 4:
             existing = set(picked)
-            for fact in current_role.get("core_facts", []):
-                if fact in existing:
+            for ach in iter_achievements(current_role):
+                fact = ach.get("text") or ""
+                if not fact or fact in existing:
                     continue
                 picked.insert(current_count, fact)
+                eid = str(ach.get("id") or "")
+                if eid:
+                    picked_ids.insert(current_count, eid)
                 current_count += 1
                 if current_count >= 4:
                     break
 
     if not picked and roles:
-        picked = list(roles[0].get("core_facts", []))[:4]
+        for ach in iter_achievements(roles[0])[:4]:
+            picked.append(ach["text"])
+            if ach.get("id"):
+                picked_ids.append(str(ach["id"]))
 
     deterministic_summary = draft_summary(job_description, archetype_id)
     final_summary = deterministic_summary
@@ -245,15 +265,36 @@ def generate_resume_draft(
         "Every claim traces back to `master_truth_model.json`; review before submission.",
         "LLM rewrites are guardrailed to not introduce new numbers, tools, or scope.",
         "Verify metrics, titles, and tools match the truth model before sending.",
+        "Generated bullets include evidence_ids when the achievement has a stable id.",
     ]
     if archetype_id:
         notes.append(f"Base resume: archetype `{archetype_id}` (see `data/archetypes/`).")
     if use_llm and not llm_applied:
         notes.append("LLM requested but fell back to deterministic output.")
 
+    selected_evidence = []
+    for bullet in final_bullets:
+        ev = evidence_for_bullet(truth, bullet)
+        if ev:
+            selected_evidence.append(ev)
+        else:
+            # LLM rewrite may change wording; map back to nearest source by order.
+            selected_evidence.append(
+                {
+                    "evidence_id": None,
+                    "text": bullet,
+                    "status": "rewrite",
+                    "evidence_source": None,
+                    "role_company": None,
+                    "role_id": None,
+                }
+            )
+
     return {
         "summary": final_summary,
         "selected_bullets": final_bullets,
+        "evidence_ids": [e.get("evidence_id") for e in selected_evidence if e.get("evidence_id")],
+        "selected_evidence": selected_evidence,
         "notes": notes,
         "llm_applied": llm_applied,
     }
@@ -286,7 +327,7 @@ def rank_role_bullets(
 
     scored: List[Tuple[float, str]] = []
     for role in matches:
-        for fact in role.get("core_facts", []):
+        for fact in core_fact_texts(role):
             fact_tokens = set(_tokenize(fact))
             score = len(fact_tokens & job_tokens)
             scored.append((score, fact))
@@ -294,7 +335,7 @@ def rank_role_bullets(
     scored.sort(key=lambda t: t[0], reverse=True)
     ordered = [fact for _, fact in scored]
     if not ordered:
-        return list(matches[0].get("core_facts", []))[:limit]
+        return core_fact_texts(matches[0])[:limit]
 
     seen: set[str] = set()
     unique: List[str] = []
@@ -311,7 +352,7 @@ def _company_for_bullet(bullet: str, roles: List[Dict]) -> str:
     """Reverse-lookup which role a bullet came from. Used when we top up the
     current role's bullet count after the main ranking pass."""
     for role in roles:
-        if bullet in role.get("core_facts", []):
+        if bullet in core_fact_texts(role):
             return role.get("company", "")
     return ""
 

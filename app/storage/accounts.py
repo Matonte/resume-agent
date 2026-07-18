@@ -47,6 +47,7 @@ def seed_profile_empty_candidate_pack(dest: Path) -> None:
     """
     dest.mkdir(parents=True, exist_ok=True)
     truth = {
+        "schema_version": 2,
         "candidate": {
             "preferred_name": "",
             "years_experience": 0,
@@ -54,6 +55,11 @@ def seed_profile_empty_candidate_pack(dest: Path) -> None:
             "skills": {},
         },
         "roles": [],
+        "profile_layers": {
+            "verified_facts": [],
+            "inferred_profile": [],
+            "user_preferences": {},
+        },
     }
     (dest / "master_truth_model.json").write_text(
         json.dumps(truth, indent=2), encoding="utf-8"
