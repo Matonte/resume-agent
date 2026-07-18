@@ -70,7 +70,17 @@ def test_onboarding_finish_without_llm(client: TestClient, monkeypatch) -> None:
 
     fin = client.post("/api/onboarding/finish")
     assert fin.status_code == 200, fin.text
-    assert fin.json()["ok"] is True
+    body = fin.json()
+    assert body["ok"] is True
+    assert body.get("needs_review") is True
+
+    # Finish alone must not unlock — confirm does.
+    me = client.get("/api/auth/me").json()
+    assert me["needs_onboarding"] is True
+
+    conf = client.post("/api/onboarding/confirm")
+    assert conf.status_code == 200, conf.text
+    assert conf.json()["ok"] is True
 
     me = client.get("/api/auth/me").json()
     assert me["needs_onboarding"] is False

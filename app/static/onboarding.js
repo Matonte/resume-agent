@@ -7,6 +7,17 @@
   const jdCount = document.getElementById("jd-count");
   const finishBtn = document.getElementById("finish-btn");
   const finishMsg = document.getElementById("finish-msg");
+  const reviewPanel = document.getElementById("review-panel");
+  const conflictsBox = document.getElementById("conflicts-box");
+  const rolesEditor = document.getElementById("roles-editor");
+  const saveReviewBtn = document.getElementById("save-review-btn");
+  const confirmBtn = document.getElementById("confirm-btn");
+  const reviewMsg = document.getElementById("review-msg");
+  const revName = document.getElementById("rev-name");
+  const revHeadline = document.getElementById("rev-headline");
+  const revYears = document.getElementById("rev-years");
+
+  let currentProfile = null;
 
   function showBanner(text, kind) {
     if (!text) {
@@ -16,6 +27,141 @@
     banner.hidden = false;
     banner.className = "status " + (kind || "info");
     banner.textContent = text;
+  }
+
+  function showReviewMsg(text, kind) {
+    if (!text) {
+      reviewMsg.hidden = true;
+      return;
+    }
+    reviewMsg.hidden = false;
+    reviewMsg.className = "status " + (kind || "info");
+    reviewMsg.textContent = text;
+  }
+
+  function renderConflicts(conflicts) {
+    if (!conflicts || !conflicts.length) {
+      conflictsBox.hidden = true;
+      conflictsBox.textContent = "";
+      return;
+    }
+    conflictsBox.hidden = false;
+    conflictsBox.innerHTML =
+      "<strong>Conflicts to resolve:</strong><ul>" +
+      conflicts
+        .map(function (c) {
+          return "<li>" + escapeHtml(c.message || c.type || "conflict") + "</li>";
+        })
+        .join("") +
+      "</ul>";
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function renderRoles(roles) {
+    rolesEditor.innerHTML = "";
+    (roles || []).forEach(function (role, ri) {
+      const wrap = document.createElement("div");
+      wrap.className = "panel";
+      wrap.style.marginTop = "0.75rem";
+      wrap.dataset.roleIndex = String(ri);
+
+      const achText = (role.achievements || [])
+        .map(function (a) {
+          return a.text || "";
+        })
+        .filter(Boolean)
+        .join("\n");
+
+      wrap.innerHTML =
+        "<h3 class=\"panel-heading\">" +
+        escapeHtml(role.company || "Role") +
+        "</h3>" +
+        '<label><span>Company</span><input data-field="company" type="text" value="' +
+        escapeHtml(role.company || "") +
+        '" /></label>' +
+        '<label><span>Title</span><input data-field="title" type="text" value="' +
+        escapeHtml(role.title || "") +
+        '" /></label>' +
+        '<label><span>Start</span><input data-field="start" type="text" value="' +
+        escapeHtml(role.start || "") +
+        '" /></label>' +
+        '<label><span>End</span><input data-field="end" type="text" value="' +
+        escapeHtml(role.end || "") +
+        '" placeholder="blank if current" /></label>' +
+        '<label><span>Achievements (one per line)</span><textarea data-field="achievements" rows="6">' +
+        escapeHtml(achText) +
+        "</textarea></label>";
+      rolesEditor.appendChild(wrap);
+    });
+  }
+
+  function showProfile(profile) {
+    currentProfile = profile;
+    reviewPanel.hidden = false;
+    revName.value = (profile.candidate && profile.candidate.preferred_name) || "";
+    revHeadline.value = (profile.candidate && profile.candidate.headline) || "";
+    revYears.value = (profile.candidate && profile.candidate.years_experience) || 0;
+    renderConflicts(profile.conflicts || []);
+    renderRoles(profile.roles || []);
+  }
+
+  function collectProfilePayload() {
+    const roles = [];
+    rolesEditor.querySelectorAll("[data-role-index]").forEach(function (wrap, ri) {
+      const prior = (currentProfile && currentProfile.roles && currentProfile.roles[ri]) || {};
+      const get = function (field) {
+        const el = wrap.querySelector('[data-field="' + field + '"]');
+        return el ? el.value : "";
+      };
+      const lines = String(get("achievements") || "")
+        .split("\n")
+        .map(function (l) {
+          return l.trim();
+        })
+        .filter(Boolean);
+      const priorAchs = prior.achievements || [];
+      const achievements = lines.map(function (text, i) {
+        const prev = priorAchs[i] || {};
+        return {
+          id: prev.id || null,
+          text: text,
+          status: "user_confirmed",
+          evidence_source: prev.evidence_source || "user_review",
+          confidence: prev.confidence != null ? prev.confidence : 1,
+          technologies: prev.technologies || [],
+        };
+      });
+      roles.push({
+        id: prior.id || null,
+        company: get("company"),
+        title: get("title"),
+        location: prior.location || null,
+        start: get("start") || null,
+        end: get("end") || null,
+        is_current: !get("end"),
+        tech: prior.tech || [],
+        themes: prior.themes || [],
+        achievements: achievements,
+        core_facts: lines,
+      });
+    });
+    return {
+      candidate: {
+        preferred_name: revName.value.trim(),
+        headline: revHeadline.value.trim(),
+        years_experience: Number(revYears.value) || 0,
+        skills: (currentProfile && currentProfile.candidate && currentProfile.candidate.skills) || {},
+      },
+      roles: roles,
+      inferred_profile: (currentProfile && currentProfile.inferred_profile) || [],
+    };
   }
 
   async function refreshStatus() {
@@ -43,6 +189,13 @@
       s.job_sample_count >= s.min_job_samples &&
       (s.llm_configured || s.allow_finish_without_llm)
     );
+    if (s.awaiting_review) {
+      const pref = await fetch("/api/onboarding/profile");
+      if (pref.ok) {
+        const data = await pref.json();
+        if (data.profile) showProfile(data.profile);
+      }
+    }
   }
 
   resumeForm.addEventListener("submit", async (e) => {
@@ -103,7 +256,63 @@
     }
     finishMsg.hidden = false;
     finishMsg.className = "status success";
-    finishMsg.textContent = data.message || "Done.";
+    finishMsg.textContent = data.message || "Draft ready — review below.";
+    if (data.profile) {
+      showProfile(data.profile);
+    } else {
+      await refreshStatus();
+    }
+  });
+
+  saveReviewBtn.addEventListener("click", async () => {
+    showReviewMsg("");
+    const payload = collectProfilePayload();
+    const res = await fetch("/api/onboarding/profile", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showReviewMsg(
+        typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail),
+        "error",
+      );
+      return;
+    }
+    showReviewMsg("Corrections saved.", "success");
+    if (data.profile) showProfile(data.profile);
+  });
+
+  confirmBtn.addEventListener("click", async () => {
+    showReviewMsg("");
+    // Persist latest edits before unlock.
+    const payload = collectProfilePayload();
+    if (currentProfile && (currentProfile.roles || []).length) {
+      const save = await fetch("/api/onboarding/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!save.ok) {
+        const data = await save.json().catch(() => ({}));
+        showReviewMsg(
+          typeof data.detail === "string" ? data.detail : "Could not save before confirm.",
+          "error",
+        );
+        return;
+      }
+    }
+    const res = await fetch("/api/onboarding/confirm", { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showReviewMsg(
+        typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail),
+        "error",
+      );
+      return;
+    }
+    showReviewMsg(data.message || "Confirmed.", "success");
     window.location.href = "/jobs/today";
   });
 

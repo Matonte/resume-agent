@@ -17,8 +17,7 @@
         <h1>Set up <span class="wordmark-tag" aria-hidden="true">Your workspace</span></h1>
         <p class="subtitle">
           Upload at least one résumé (<code>.docx</code> or <code>.txt</code>) and paste several job descriptions you care about.
-          We use them once to build your <code>master_truth_model.json</code> and <code>story_bank.json</code> (needs <code>OPENAI_API_KEY</code>,
-          or enable dev-only saving without generation — see <code>.env.example</code>).
+          We generate a draft profile, then you review and correct it before the workspace unlocks.
         </p>
       </div>
       <div class="links">
@@ -32,7 +31,7 @@
       <p id="banner" class="status" hidden></p>
     </section>
 
-    <section class="panel">
+    <section class="panel" id="upload-panel">
       <h2 class="panel-heading">Résumé files</h2>
       <form id="resume-form" class="form-grid">
         <label><span>File</span><input name="file" type="file" accept=".docx,.txt" required /></label>
@@ -41,7 +40,7 @@
       <p id="resume-list" class="muted"></p>
     </section>
 
-    <section class="panel">
+    <section class="panel" id="jd-panel">
       <h2 class="panel-heading">Job description samples</h2>
       <p class="muted">Paste full posting text (each sample at least ~80 characters).</p>
       <form id="jd-form" class="form-grid">
@@ -51,11 +50,30 @@
       <p id="jd-count" class="muted"></p>
     </section>
 
-    <section class="panel">
-      <h2 class="panel-heading">Finish</h2>
-      <p class="muted">When counts below meet the minimum, run generation and unlock the rest of the app.</p>
-      <button type="button" id="finish-btn" class="primary" disabled>Generate profile &amp; continue</button>
+    <section class="panel" id="generate-panel">
+      <h2 class="panel-heading">Generate draft</h2>
+      <p class="muted">When counts below meet the minimum, generate a draft profile for review.</p>
+      <button type="button" id="finish-btn" class="primary" disabled>Generate draft profile</button>
       <p id="finish-msg" class="status" hidden></p>
+    </section>
+
+    <section class="panel" id="review-panel" hidden>
+      <h2 class="panel-heading">Review your profile</h2>
+      <p class="muted">
+        Correct employers, dates, skills, and accomplishments. Conflicts are listed — do not leave them unresolved if they matter.
+      </p>
+      <div id="conflicts-box" class="status error" hidden></div>
+      <form id="review-form" class="form-grid">
+        <label><span>Preferred name</span><input id="rev-name" name="preferred_name" type="text" /></label>
+        <label><span>Headline</span><input id="rev-headline" name="headline" type="text" /></label>
+        <label><span>Years experience</span><input id="rev-years" name="years_experience" type="number" min="0" max="60" /></label>
+      </form>
+      <div id="roles-editor"></div>
+      <div class="form-grid" style="margin-top: 1rem;">
+        <button type="button" id="save-review-btn">Save corrections</button>
+        <button type="button" id="confirm-btn" class="primary">Confirm profile &amp; continue</button>
+      </div>
+      <p id="review-msg" class="status" hidden></p>
     </section>
   </main>
   <script src="/static/onboarding.js"></script>
