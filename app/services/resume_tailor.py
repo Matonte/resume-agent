@@ -25,6 +25,10 @@ from app.services.evidence_schema import (
     evidence_for_bullet,
     iter_achievements,
 )
+from app.services.requirement_matcher import (
+    achievement_scores_from_matches,
+    match_requirements_to_evidence,
+)
 
 _STOPWORDS = {
     "the", "and", "for", "with", "that", "this", "from", "into", "about",
@@ -70,6 +74,7 @@ def _rank_bullets(job_description: str) -> List[_ScoredBullet]:
     Scoring layers:
     - role_score: how many JD tokens overlap the role's themes/tech/facts overall
     - fact_match * 1.5: direct token overlap with the bullet itself (strongest)
+    - requirement match * 4: best requirement→evidence score for this achievement
     - recency bonus: more recent roles get a small boost so we don't lead with
       decade-old bullets when the overlap is tied
     - current-role bonus: the signature / current role gets an extra push so
@@ -77,6 +82,8 @@ def _rank_bullets(job_description: str) -> List[_ScoredBullet]:
     """
     truth = load_truth_model()
     job_tokens = set(_tokenize(job_description))
+    req_matches = match_requirements_to_evidence(job_description, truth)
+    evid_boost = achievement_scores_from_matches(req_matches)
     ranked: List[_ScoredBullet] = []
 
     roles = truth.get("roles", [])
@@ -90,16 +97,22 @@ def _rank_bullets(job_description: str) -> List[_ScoredBullet]:
             fact = ach.get("text") or ""
             if not fact:
                 continue
+            eid = str(ach.get("id") or "")
             fact_tokens = set(_tokenize(fact))
             fact_match = len(fact_tokens & job_tokens)
+            req_bonus = evid_boost.get(eid, 0.0) * 4.0
             ranked.append(
                 _ScoredBullet(
                     bullet=fact,
-                    evidence_id=str(ach.get("id") or ""),
+                    evidence_id=eid,
                     role_company=company,
                     role_index=idx,
                     is_current=is_current,
-                    score=role_score + (fact_match * 1.5) + recency_bonus + current_bonus,
+                    score=role_score
+                    + (fact_match * 1.5)
+                    + req_bonus
+                    + recency_bonus
+                    + current_bonus,
                 )
             )
 
@@ -295,6 +308,7 @@ def generate_resume_draft(
         "selected_bullets": final_bullets,
         "evidence_ids": [e.get("evidence_id") for e in selected_evidence if e.get("evidence_id")],
         "selected_evidence": selected_evidence,
+        "requirement_matches": match_requirements_to_evidence(job_description, truth),
         "notes": notes,
         "llm_applied": llm_applied,
     }
