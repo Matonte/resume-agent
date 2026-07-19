@@ -242,6 +242,9 @@ def build_person_profile_bundle(params: PersonProfileBundleParams) -> Dict[str, 
             notes=notes_for_advisor[:6000] if notes_for_advisor else None,
             source_hint="resume_agent_public_bundle",
             context=ctx,
+            job_description=(
+                f"{(params.company or '').strip()} {(params.title_hint or '').strip()}"
+            ).strip(),
         )
 
     practical = build_practical_readout(

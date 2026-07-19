@@ -21,6 +21,54 @@ DEFAULT_PATH = Path(__file__).resolve().parents[2] / "data" / "preferences.yaml"
 DEFAULT_LINKEDIN_JOBS_GEO_ID = "103644278"
 
 
+def preferences_path() -> Path:
+    """Active preferences file: per-profile when a tenant data dir is bound.
+
+    Default / CLI workspace keeps using repo ``data/preferences.yaml``.
+    Registered profiles use ``<profile_dir>/preferences.yaml``.
+    """
+    from app.services.data_context import (
+        DEFAULT_CANDIDATE_DATA_DIR,
+        get_candidate_data_dir,
+    )
+
+    root = get_candidate_data_dir()
+    try:
+        if root.resolve() != DEFAULT_CANDIDATE_DATA_DIR.resolve():
+            return root / "preferences.yaml"
+    except OSError:
+        pass
+    return DEFAULT_PATH
+
+
+def ensure_preferences_file(path: Optional[Path | str] = None) -> Path:
+    """Ensure a preferences YAML exists at ``path`` (copying shared defaults if needed)."""
+    resolved = Path(path) if path else preferences_path()
+    if resolved.exists():
+        return resolved
+    resolved.parent.mkdir(parents=True, exist_ok=True)
+    if resolved != DEFAULT_PATH and DEFAULT_PATH.exists():
+        # Seed tenant file from shared defaults, clearing personal contact fields.
+        raw_any = yaml.safe_load(DEFAULT_PATH.read_text(encoding="utf-8")) or {}
+        if not isinstance(raw_any, dict):
+            raw_any = {}
+        cand = dict(raw_any.get("candidate") or {})
+        for key in ("name", "email", "phone", "linkedin_url", "github_url"):
+            cand[key] = ""
+        raw_any["candidate"] = cand
+        resolved.write_text(
+            yaml.safe_dump(raw_any, sort_keys=False, allow_unicode=True),
+            encoding="utf-8",
+        )
+        return resolved
+    prefs = Preferences()
+    resolved.write_text(
+        yaml.safe_dump(prefs.model_dump(), sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+    return resolved
+
+
 class CandidateInfo(BaseModel):
     name: str = ""
     email: str = ""
@@ -168,13 +216,57 @@ def merge_preferences_candidate(
 
 def load_preferences(path: Optional[Path | str] = None) -> Preferences:
     """Load preferences from YAML. Returns a default-populated `Preferences`
-    if the file is missing (useful for tests and first-run setup)."""
-    resolved = Path(path) if path else DEFAULT_PATH
+    if the file is missing (useful for tests and first-run setup).
+
+    With no ``path``, uses the active candidate profile's ``preferences.yaml``
+    when a tenant data dir is bound; otherwise repo ``data/preferences.yaml``.
+    Tenant profiles without a file yet fall back to the shared defaults for
+    reading (until the first save seeds a tenant copy).
+    """
+    resolved = Path(path) if path else preferences_path()
     if not resolved.exists():
-        return Preferences()
+        if path is None and resolved != DEFAULT_PATH and DEFAULT_PATH.exists():
+            resolved = DEFAULT_PATH
+        else:
+            return Preferences()
     with resolved.open("r", encoding="utf-8") as f:
         raw = yaml.safe_load(f) or {}
     return Preferences.model_validate(raw)
+
+
+def sync_user_preferences_into_truth(prefs: Preferences) -> None:
+    """Mirror search prefs into ``master_truth_model.profile_layers.user_preferences``."""
+    import json
+
+    from app.services.data_context import get_candidate_data_dir
+    from app.services.evidence_schema import normalize_truth_model
+
+    truth_path = get_candidate_data_dir() / "master_truth_model.json"
+    if not truth_path.is_file():
+        return
+    try:
+        raw = json.loads(truth_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return
+    if not isinstance(raw, dict):
+        return
+    truth = normalize_truth_model(raw)
+    layers = dict(truth.get("profile_layers") or {})
+    layers["user_preferences"] = {
+        "titles": list(prefs.targets.titles),
+        "locations": list(prefs.targets.locations),
+        "remote_ok": bool(prefs.targets.remote_ok),
+        "seniority": prefs.targets.seniority,
+        "min_base_salary_usd": int(prefs.targets.min_base_salary_usd or 0),
+        "excluded_companies": list(prefs.exclude.companies),
+        "excluded_keywords": list(prefs.exclude.keywords),
+        "linkedin_geo_id": prefs.effective_linkedin_geo_id(),
+    }
+    truth["profile_layers"] = layers
+    try:
+        truth_path.write_text(json.dumps(truth, indent=2), encoding="utf-8")
+    except OSError:
+        return
 
 
 def patch_job_search_geography(
@@ -185,13 +277,13 @@ def patch_job_search_geography(
     path: Optional[Path | str] = None,
 ) -> Preferences:
     """Update ``targets.locations``, ``targets.remote_ok``, and
-    ``sources.linkedin.geo_id`` in ``preferences.yaml``.
+    ``sources.linkedin.geo_id`` in the active preferences file.
 
     Loads the existing YAML mapping, applies those keys only, validates the
     full document as `Preferences`, then writes it back. Inline comments in
     the file are not preserved (PyYAML limitation).
     """
-    resolved = Path(path) if path else DEFAULT_PATH
+    resolved = ensure_preferences_file(path)
     if resolved.exists():
         raw_any = yaml.safe_load(resolved.read_text(encoding="utf-8"))
     else:
@@ -224,6 +316,7 @@ def patch_job_search_geography(
         yaml.safe_dump(raw, sort_keys=False, allow_unicode=True),
         encoding="utf-8",
     )
+    sync_user_preferences_into_truth(prefs)
     return prefs
 
 
@@ -238,6 +331,9 @@ __all__ = [
     "load_preferences",
     "merge_preferences_candidate",
     "patch_job_search_geography",
+    "preferences_path",
+    "ensure_preferences_file",
+    "sync_user_preferences_into_truth",
     "DEFAULT_PATH",
     "DEFAULT_LINKEDIN_JOBS_GEO_ID",
 ]

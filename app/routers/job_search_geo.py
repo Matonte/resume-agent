@@ -10,9 +10,9 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.jobs.preferences import (
     DEFAULT_LINKEDIN_JOBS_GEO_ID,
-    DEFAULT_PATH,
     load_preferences,
     patch_job_search_geography,
+    preferences_path,
 )
 
 router = APIRouter(prefix="/api/job-search-geography", tags=["job-search-geography"])
@@ -36,16 +36,17 @@ def _response_dict(prefs) -> Dict[str, Any]:
     cfg = prefs.sources.get("linkedin")
     stored = (cfg.geo_id if cfg else "") or ""
     stored = stored.strip()
+    path = preferences_path()
     return {
         "locations": list(prefs.targets.locations),
         "remote_ok": prefs.targets.remote_ok,
         "linkedin_geo_id": stored,
         "linkedin_effective_geo_id": prefs.effective_linkedin_geo_id(),
         "linkedin_default_geo_id": DEFAULT_LINKEDIN_JOBS_GEO_ID,
-        "preferences_path": str(DEFAULT_PATH),
+        "preferences_path": str(path),
         "save_note": (
-            "Saving rewrites data/preferences.yaml; YAML comments in that file "
-            "are not preserved (PyYAML)."
+            "Saving rewrites the active profile preferences.yaml "
+            f"({path.name}); YAML comments are not preserved (PyYAML)."
         ),
     }
 

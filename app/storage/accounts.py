@@ -74,6 +74,12 @@ def seed_profile_empty_candidate_pack(dest: Path) -> None:
     (dest / "application_answer_bank.json").write_text(
         json.dumps(bank, indent=2), encoding="utf-8"
     )
+    try:
+        from app.jobs.preferences import ensure_preferences_file
+
+        ensure_preferences_file(dest / "preferences.yaml")
+    except Exception:
+        pass
 
 
 def seed_profile_from_repo_template(dest: Path) -> None:

@@ -56,9 +56,20 @@ def test_draft_includes_evidence_ids() -> None:
     )
     assert draft["selected_bullets"]
     assert draft["evidence_ids"], "expected evidence_ids for selected bullets"
+    assert draft.get("evidence_gated") is True
+    assert len(draft["evidence_ids"]) == len(draft["selected_bullets"])
     assert len(draft["selected_evidence"]) == len(draft["selected_bullets"])
     for ev in draft["selected_evidence"]:
-        if ev.get("evidence_id"):
-            found = evidence_for_bullet(load_truth_model(), ev["text"])
-            assert found is not None
+        assert ev.get("evidence_id"), "every selected claim must have evidence_id"
+        found = evidence_for_bullet(load_truth_model(), ev["text"])
+        # Rewrites may change text; id must still be present either way.
+        if found is not None:
             assert found["evidence_id"] == ev["evidence_id"]
+
+
+def test_notes_mention_evidence_gate() -> None:
+    draft = generate_resume_draft(
+        "Distributed systems role.", "D_distributed_systems"
+    )
+    joined = " ".join(draft["notes"]).lower()
+    assert "evidence id" in joined

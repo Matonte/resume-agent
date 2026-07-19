@@ -33,6 +33,7 @@ import httpx
 from pydantic import BaseModel, Field
 
 from app.config import settings
+from app.services.candidate_signal_bundle import merge_candidate_into_advisor_context
 from app.services.llm import complete_json, is_available
 from app.services.outreach_posting_people import PostingPerson
 from app.services.outreach_search import (
@@ -101,13 +102,19 @@ def _call_meeting_advisor(
         f"Company / intent: {company_description.strip()[:1500]}\n\n"
         f"Search title: {hit.title}\nURL: {hit.url}\nSnippet: {hit.snippet[:2000]}"
     )
-    context = {
-        "setting": "Cold async outreach (email or LinkedIn), no prior in-person relationship",
-        "your_role": "Experienced software engineer exploring fit with this company",
-        "stakes": "First impression; keep outreach concise and respectful",
-        "goals": "Open a useful conversation about roles or team needs without pressure",
-        "notes": f"Resume-agent inferred contact type: {inferred_role}. Prefer ethical, non-manipulative guidance.",
-    }
+    context = merge_candidate_into_advisor_context(
+        {
+            "setting": "Cold async outreach (email or LinkedIn), no prior in-person relationship",
+            "your_role": "Experienced software engineer exploring fit with this company",
+            "stakes": "First impression; keep outreach concise and respectful",
+            "goals": "Open a useful conversation about roles or team needs without pressure",
+            "notes": (
+                f"Resume-agent inferred contact type: {inferred_role}. "
+                "Prefer ethical, non-manipulative guidance."
+            ),
+        },
+        job_description=company_description,
+    )
     payload = {
         "subject_name": subject,
         "notes": notes,

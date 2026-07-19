@@ -190,18 +190,22 @@ def generate_resume_draft(
     # The current role is the resume's anchor and deserves more bullets than
     # past roles; older companies are capped at 2 so the draft doesn't get
     # pulled backward in time.
+    # Hard gate: never select a bullet without a stable evidence id.
     picked: List[str] = []
     picked_ids: List[str] = []
     per_company: Dict[str, int] = {}
+    dropped_no_evidence = 0
     for b in ranked:
         if b.score <= 0:
+            continue
+        if not b.evidence_id:
+            dropped_no_evidence += 1
             continue
         company_cap = 5 if b.is_current else (3 if b.role_index <= 1 else 2)
         if per_company.get(b.role_company, 0) >= company_cap:
             continue
         picked.append(b.bullet)
-        if b.evidence_id:
-            picked_ids.append(b.evidence_id)
+        picked_ids.append(b.evidence_id)
         per_company[b.role_company] = per_company.get(b.role_company, 0) + 1
         if len(picked) >= 10:
             break
@@ -222,25 +226,28 @@ def generate_resume_draft(
             existing = set(picked)
             for ach in iter_achievements(current_role):
                 fact = ach.get("text") or ""
-                if not fact or fact in existing:
+                eid = str(ach.get("id") or "")
+                if not fact or not eid or fact in existing:
                     continue
                 picked.insert(current_count, fact)
-                eid = str(ach.get("id") or "")
-                if eid:
-                    picked_ids.insert(current_count, eid)
+                picked_ids.insert(current_count, eid)
                 current_count += 1
                 if current_count >= 4:
                     break
 
     if not picked and roles:
         for ach in iter_achievements(roles[0])[:4]:
-            picked.append(ach["text"])
-            if ach.get("id"):
-                picked_ids.append(str(ach["id"]))
+            eid = str(ach.get("id") or "")
+            text = ach.get("text") or ""
+            if not eid or not text:
+                continue
+            picked.append(text)
+            picked_ids.append(eid)
 
     deterministic_summary = draft_summary(job_description, archetype_id)
     final_summary = deterministic_summary
-    final_bullets = picked
+    final_bullets = list(picked)
+    final_ids = list(picked_ids)
     llm_applied = False
 
     rag_context = ""
@@ -269,34 +276,64 @@ def generate_resume_draft(
                 archetype_id,
                 rag_context=rag_context,
             )
-            final_bullets = rewrite_bullets(picked, job_description, rag_context=rag_context)
+            rewritten = rewrite_bullets(picked, job_description, rag_context=rag_context)
+            # Preserve evidence ids by index; drop any rewrite without an id.
+            paired_bullets: List[str] = []
+            paired_ids: List[str] = []
+            for i, bullet in enumerate(rewritten):
+                eid = picked_ids[i] if i < len(picked_ids) else ""
+                if not eid:
+                    ev = evidence_for_bullet(truth, bullet)
+                    eid = str((ev or {}).get("evidence_id") or "")
+                if not eid:
+                    dropped_no_evidence += 1
+                    continue
+                paired_bullets.append(bullet)
+                paired_ids.append(eid)
+            final_bullets = paired_bullets
+            final_ids = paired_ids
             llm_applied = (
                 final_summary != deterministic_summary or final_bullets != picked
             )
 
+    # Final evidence gate — no claim without an evidence id.
+    gated_bullets: List[str] = []
+    gated_ids: List[str] = []
+    for bullet, eid in zip(final_bullets, final_ids):
+        if eid:
+            gated_bullets.append(bullet)
+            gated_ids.append(eid)
+        else:
+            dropped_no_evidence += 1
+    final_bullets = gated_bullets
+    final_ids = gated_ids
+
     notes = [
         "Every claim traces back to `master_truth_model.json`; review before submission.",
+        "No résumé claim is emitted without an evidence id.",
         "LLM rewrites are guardrailed to not introduce new numbers, tools, or scope.",
         "Verify metrics, titles, and tools match the truth model before sending.",
-        "Generated bullets include evidence_ids when the achievement has a stable id.",
     ]
+    if dropped_no_evidence:
+        notes.append(
+            f"Dropped {dropped_no_evidence} bullet(s) that lacked evidence ids."
+        )
     if archetype_id:
         notes.append(f"Base resume: archetype `{archetype_id}` (see `data/archetypes/`).")
     if use_llm and not llm_applied:
         notes.append("LLM requested but fell back to deterministic output.")
 
     selected_evidence = []
-    for bullet in final_bullets:
+    for bullet, eid in zip(final_bullets, final_ids):
         ev = evidence_for_bullet(truth, bullet)
-        if ev:
+        if ev and ev.get("evidence_id"):
             selected_evidence.append(ev)
         else:
-            # LLM rewrite may change wording; map back to nearest source by order.
             selected_evidence.append(
                 {
-                    "evidence_id": None,
+                    "evidence_id": eid,
                     "text": bullet,
-                    "status": "rewrite",
+                    "status": "supported",
                     "evidence_source": None,
                     "role_company": None,
                     "role_id": None,
@@ -306,9 +343,10 @@ def generate_resume_draft(
     return {
         "summary": final_summary,
         "selected_bullets": final_bullets,
-        "evidence_ids": [e.get("evidence_id") for e in selected_evidence if e.get("evidence_id")],
+        "evidence_ids": list(final_ids),
         "selected_evidence": selected_evidence,
         "requirement_matches": match_requirements_to_evidence(job_description, truth),
+        "evidence_gated": True,
         "notes": notes,
         "llm_applied": llm_applied,
     }

@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional
 import httpx
 
 from app.config import settings
+from app.services.candidate_signal_bundle import merge_candidate_into_advisor_context
 
 logger = logging.getLogger(__name__)
 
@@ -21,16 +22,20 @@ def post_meeting_advise(
     source_hint: str = "",
     context: Dict[str, Any],
     client: Optional[httpx.Client] = None,
+    job_description: str = "",
 ) -> tuple[Optional[Dict[str, Any]], Optional[str]]:
     """POST merged K + HOSS + LLM advice. Returns ``(json, error_message)``."""
     url = (settings.meeting_advisor_advise_url or "").strip()
     if not url:
         return None, "MEETING_ADVISOR_URL is not set."
 
+    merged_ctx = merge_candidate_into_advisor_context(
+        context, job_description=job_description
+    )
     payload: Dict[str, Any] = {
         "subject_name": (subject_name or "").strip(),
         "source_hint": (source_hint or "").strip(),
-        "context": context,
+        "context": merged_ctx,
     }
     if notes and notes.strip():
         payload["notes"] = notes.strip()
