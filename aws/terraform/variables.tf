@@ -68,8 +68,9 @@ variable "db_multi_az" {
 }
 
 variable "db_backup_retention_days" {
-  type    = number
-  default = 7
+  type        = number
+  default     = 0
+  description = "0 or 1 for free-tier accounts (7+ is often rejected). Raise after upgrading the account plan."
 }
 
 variable "db_skip_final_snapshot" {
@@ -93,6 +94,12 @@ variable "ssh_cidr_blocks" {
   type        = list(string)
   default     = []
   description = "CIDRs allowed to SSH (e.g. [\"203.0.113.10/32\"]). Empty = no port 22; use SSM Session Manager only."
+}
+
+variable "key_name" {
+  type        = string
+  default     = ""
+  description = "Optional EC2 key pair name for SSH. Prefer SSM when empty."
 }
 
 variable "app_hostname" {

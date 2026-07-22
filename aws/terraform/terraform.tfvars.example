@@ -3,13 +3,15 @@
 aws_region   = "us-east-1"
 project_name = "resume-agent"
 
-# Graviton — 8 GiB for resume-agent + contact-advisor + Playwright.
-instance_type  = "t4g.large"
+# Free-tier AWS accounts: use t4g.small (or t4g.micro). Upgrade account plan for t4g.large.
+instance_type  = "t4g.small"
 root_volume_gb = 40
 
 # RDS MySQL (single-AZ). App gets DATABASE_URL via instance user-data.
 # db_instance_class = "db.t4g.micro"
 # db_multi_az       = false
+# Free-tier often rejects backup retention > 0–1 day:
+# db_backup_retention_days = 0
 
 # Optional: lock SSH to your IP; leave [] to use SSM Session Manager only (recommended).
 # ssh_cidr_blocks = ["203.0.113.50/32"]

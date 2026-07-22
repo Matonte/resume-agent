@@ -1,6 +1,7 @@
 resource "aws_ecr_repository" "resume_agent" {
   name                 = var.repository_name
   image_tag_mutability = "MUTABLE"
+  tags                 = local.app_tags
 
   image_scanning_configuration {
     scan_on_push = true

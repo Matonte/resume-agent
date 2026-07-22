@@ -43,3 +43,13 @@ output "rds_db_name" {
 output "env_file_on_instance" {
   value = "/opt/resume-agent/.env — add OPENAI_API_KEY, Gmail, Contact Advisor URLs, then: docker restart resume-agent"
 }
+
+output "aws_console_application" {
+  description = "myApplications entry in the AWS Console (us-east-1)."
+  value       = "https://${var.aws_region}.console.aws.amazon.com/systems-manager/appmanager/application/${aws_servicecatalogappregistry_application.resume_agent.id}?region=${var.aws_region}"
+}
+
+output "application_id" {
+  description = "AppRegistry / myApplications application id"
+  value       = aws_servicecatalogappregistry_application.resume_agent.id
+}

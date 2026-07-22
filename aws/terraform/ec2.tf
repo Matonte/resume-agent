@@ -34,6 +34,7 @@ data "aws_iam_policy_document" "ec2_assume" {
 resource "aws_iam_role" "app" {
   name               = "${var.project_name}-ec2"
   assume_role_policy = data.aws_iam_policy_document.ec2_assume.json
+  tags               = local.app_tags
 }
 
 resource "aws_iam_role_policy_attachment" "ssm" {
@@ -55,6 +56,7 @@ resource "aws_security_group" "app" {
   name_prefix = "${var.project_name}-"
   description = "Resume agent web + optional SSH"
   vpc_id      = data.aws_vpc.this.id
+  tags        = local.app_tags
 
   ingress {
     description = "HTTP (ACME / redirect)"
@@ -105,9 +107,9 @@ resource "aws_security_group" "app" {
 
 resource "aws_eip" "app" {
   domain = "vpc"
-  tags = {
+  tags = merge(local.app_tags, {
     Name = "${var.project_name}-eip"
-  }
+  })
 }
 
 locals {
@@ -136,6 +138,7 @@ resource "aws_instance" "app" {
   subnet_id              = var.public_subnet_id != null ? var.public_subnet_id : tolist(data.aws_subnets.default.ids)[0]
   vpc_security_group_ids = [aws_security_group.app.id]
   iam_instance_profile   = aws_iam_instance_profile.app.name
+  key_name               = var.key_name != "" ? var.key_name : null
 
   user_data                   = local.user_data
   user_data_replace_on_change = true
@@ -152,9 +155,9 @@ resource "aws_instance" "app" {
     http_put_response_hop_limit = 1
   }
 
-  tags = {
+  tags = merge(local.app_tags, {
     Name = "${var.project_name}-app"
-  }
+  })
 }
 
 data "aws_subnets" "default" {

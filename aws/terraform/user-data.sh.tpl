@@ -5,6 +5,11 @@ set -euxo pipefail
 dnf update -y
 dnf install -y docker openssl
 systemctl enable --now docker
+# Ensure SSM Session Manager works (AL2023 usually has the agent; force it on).
+dnf install -y amazon-ssm-agent || true
+systemctl enable --now amazon-ssm-agent || true
+# EC2 Instance Connect (optional SSH without a persistent key).
+dnf install -y ec2-instance-connect || true
 
 REGION="${aws_region}"
 ECR_HOST="${ecr_registry_host}"
@@ -52,9 +57,14 @@ fi
 docker pull "$IMAGE"
 
 docker rm -f resume-agent 2>/dev/null || true
+# With Caddy (TLS hostname): bind loopback only. Otherwise expose :8000 publicly.
 docker run -d --name resume-agent --restart unless-stopped \
   --log-driver json-file --log-opt max-size=10m --log-opt max-file=3 \
+%{ if install_caddy ~}
   -p 127.0.0.1:8000:8000 \
+%{ else ~}
+  -p 8000:8000 \
+%{ endif ~}
   -v /opt/resume-agent/data:/data \
   --env-file /opt/resume-agent/.env \
   "$IMAGE"

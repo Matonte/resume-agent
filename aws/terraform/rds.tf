@@ -10,15 +10,16 @@ resource "aws_db_subnet_group" "app" {
   name       = "${var.project_name}-db"
   subnet_ids = data.aws_subnets.default.ids
 
-  tags = {
+  tags = merge(local.app_tags, {
     Name = "${var.project_name}-db"
-  }
+  })
 }
 
 resource "aws_security_group" "db" {
   name_prefix = "${var.project_name}-db-"
   description = "MySQL only from app EC2 security group"
   vpc_id      = data.aws_vpc.this.id
+  tags        = local.app_tags
 
   ingress {
     description     = "MySQL from app"
@@ -67,9 +68,9 @@ resource "aws_db_instance" "app" {
   performance_insights_enabled = false
   auto_minor_version_upgrade   = true
 
-  tags = {
+  tags = merge(local.app_tags, {
     Name = "${var.project_name}-mysql"
-  }
+  })
 }
 
 locals {

@@ -54,9 +54,61 @@ def adapt_sql_for_mysql(sql: str) -> str:
     s = sql
     s = s.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "INT AUTO_INCREMENT PRIMARY KEY")
     s = s.replace("AUTOINCREMENT", "AUTO_INCREMENT")
+    # MySQL cannot index unbounded TEXT as PRIMARY KEY without a prefix length.
+    s = re.sub(
+        r"\bTEXT\s+PRIMARY\s+KEY\b",
+        "VARCHAR(191) PRIMARY KEY",
+        s,
+        flags=re.IGNORECASE,
+    )
+    # Timestamp columns before generic TEXT rewrite.
+    s = re.sub(
+        r"\b([a-zA-Z_][a-zA-Z0-9_]*)\s+TEXT\b([^,)]*?)\s+DEFAULT\s*\(\s*datetime\('now'\)\s*\)",
+        r"\1 DATETIME\2 DEFAULT CURRENT_TIMESTAMP",
+        s,
+        flags=re.IGNORECASE,
+    )
+    # BLOB/TEXT cannot take literal string DEFAULTs under MySQL strict mode (error 1101).
+    s = re.sub(
+        r"\b(TEXT|BLOB|MEDIUMTEXT|LONGTEXT)\b([^,)]*?)\s+DEFAULT\s+(?:'[^']*'|\"[^\"]*\")",
+        r"\1\2",
+        s,
+        flags=re.IGNORECASE,
+    )
+    # MySQL has no CREATE INDEX IF NOT EXISTS (unlike MariaDB); ignore 1061 instead.
+    s = re.sub(
+        r"CREATE\s+INDEX\s+IF\s+NOT\s+EXISTS\s+",
+        "CREATE INDEX ",
+        s,
+        flags=re.IGNORECASE,
+    )
+    # Map remaining short TEXT → VARCHAR; keep long content as MEDIUMTEXT.
+    _long_text = {
+        "jd_full",
+        "screening_json",
+        "embedding_json",
+        "extra_json",
+        "text",
+        "error",
+        "data",
+    }
+
+    def _rewrite_text_col(match: re.Match[str]) -> str:
+        col = match.group(1)
+        rest = match.group(2) or ""
+        if col.lower() in _long_text:
+            return f"{col} MEDIUMTEXT{rest}"
+        return f"{col} VARCHAR(191){rest}"
+
+    s = re.sub(
+        r"\b([a-zA-Z_][a-zA-Z0-9_]*)\s+TEXT\b([^,)]*)",
+        _rewrite_text_col,
+        s,
+        flags=re.IGNORECASE,
+    )
     s = re.sub(
         r"DEFAULT\s*\(\s*datetime\('now'\)\s*\)",
-        "DEFAULT (UTC_TIMESTAMP())",
+        "DEFAULT CURRENT_TIMESTAMP",
         s,
         flags=re.IGNORECASE,
     )

@@ -28,6 +28,7 @@ Run **resume-agent** and (manually) **contact-advisor** containers on the **same
 ## What Terraform creates
 
 - **ECR** repository + lifecycle policy (keep last 20 images).
+- **AppRegistry application** (`resume-agent`) so the stack appears under **AWS Console → myApplications**.
 - **IAM** role for the instance: **SSM Session Manager** + **ECR pull**.
 - **Security group (app):** **80**, **443**, **8000** from the internet (tighten **8000** after HTTPS works); **22** only if you set `ssh_cidr_blocks`.
 - **Security group (db):** MySQL **3306** only from the app SG.
