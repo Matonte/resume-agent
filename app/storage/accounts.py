@@ -82,6 +82,39 @@ def seed_profile_empty_candidate_pack(dest: Path) -> None:
         pass
 
 
+def seed_profile_from_repo_candidate_pack(
+    dest: Path,
+    *,
+    repo_data: Optional[Path] = None,
+    copy_source_resumes: bool = True,
+) -> list[str]:
+    """Copy the repo ``data/`` candidate pack into a tenant profile directory.
+
+    Used to encapsulate the owner's bundled résumé into a real account on AWS.
+    Returns the list of relative paths written.
+    """
+    import shutil
+
+    src_root = repo_data or (Path(__file__).resolve().parents[2] / "data")
+    dest.mkdir(parents=True, exist_ok=True)
+    written: list[str] = []
+    for name in (*PROFILE_TEMPLATE_FILES, "preferences.yaml"):
+        src = src_root / name
+        if not src.is_file():
+            continue
+        shutil.copy2(src, dest / name)
+        written.append(name)
+    if copy_source_resumes:
+        src_resumes = src_root / "source_resumes"
+        if src_resumes.is_dir():
+            out = dest / "source_resumes"
+            if out.exists():
+                shutil.rmtree(out)
+            shutil.copytree(src_resumes, out)
+            written.append("source_resumes/")
+    return written
+
+
 def seed_profile_from_repo_template(dest: Path) -> None:
     """Backward-compatible name: seeds empty tenant packs only."""
     seed_profile_empty_candidate_pack(dest)
@@ -411,7 +444,12 @@ def count_onboarding_assets(conn: sqlite3.Connection, user_id: int, kind: str) -
 
 def mark_onboarding_complete(conn: sqlite3.Connection, user_id: int) -> None:
     conn.execute(
-        "UPDATE users SET onboarding_completed_at = datetime('now') WHERE id = ?",
+        """
+        UPDATE users
+        SET onboarding_completed_at = datetime('now'),
+            requires_onboarding = 0
+        WHERE id = ?
+        """,
         (user_id,),
     )
     conn.commit()
@@ -437,6 +475,7 @@ __all__ = [
     "count_onboarding_assets",
     "mark_onboarding_complete",
     "seed_profile_empty_candidate_pack",
+    "seed_profile_from_repo_candidate_pack",
     "seed_profile_from_repo_template",
     "set_active_profile",
     "slugify",
