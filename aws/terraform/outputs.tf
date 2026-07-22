@@ -53,3 +53,8 @@ output "application_id" {
   description = "AppRegistry / myApplications application id"
   value       = aws_servicecatalogappregistry_application.resume_agent.id
 }
+
+output "github_actions_role_arn" {
+  description = "OIDC role for GitHub Actions (secret AWS_ROLE_TO_ASSUME)."
+  value       = aws_iam_role.github_actions.arn
+}

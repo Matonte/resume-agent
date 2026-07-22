@@ -54,6 +54,38 @@ EOF
   chmod 600 /opt/resume-agent/.env
 fi
 
+# Used by GitHub Actions → SSM to pull :latest without rewriting .env / data.
+cat >/opt/resume-agent/deploy.sh <<'DEPLOY'
+#!/bin/bash
+set -euxo pipefail
+REGION="${aws_region}"
+ECR_HOST="${ecr_registry_host}"
+IMAGE="$${1:-${ecr_image}}"
+aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin "$ECR_HOST"
+docker pull "$IMAGE"
+docker rm -f resume-agent 2>/dev/null || true
+docker run -d --name resume-agent --restart unless-stopped \
+  --log-driver json-file --log-opt max-size=10m --log-opt max-file=3 \
+%{ if install_caddy ~}
+  -p 127.0.0.1:8000:8000 \
+%{ else ~}
+  -p 8000:8000 \
+%{ endif ~}
+  -v /opt/resume-agent/data:/data \
+  --env-file /opt/resume-agent/.env \
+  "$IMAGE"
+for i in $(seq 1 45); do
+  if curl -sf http://127.0.0.1:8000/api/health >/dev/null; then
+    echo "resume-agent healthy"
+    exit 0
+  fi
+  sleep 2
+done
+echo "resume-agent health check failed" >&2
+exit 1
+DEPLOY
+chmod 755 /opt/resume-agent/deploy.sh
+
 docker pull "$IMAGE"
 
 docker rm -f resume-agent 2>/dev/null || true

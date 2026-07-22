@@ -140,8 +140,10 @@ resource "aws_instance" "app" {
   iam_instance_profile   = aws_iam_instance_profile.app.name
   key_name               = var.key_name != "" ? var.key_name : null
 
-  user_data                   = local.user_data
-  user_data_replace_on_change = true
+  user_data = local.user_data
+  # Image updates go through GitHub → ECR → /opt/resume-agent/deploy.sh (SSM).
+  # Keep false so editing user-data does not replace the live instance / wipe /data.
+  user_data_replace_on_change = false
 
   root_block_device {
     volume_type = "gp3"

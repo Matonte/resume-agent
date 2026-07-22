@@ -30,6 +30,7 @@ Run **resume-agent** and (manually) **contact-advisor** containers on the **same
 - **ECR** repository + lifecycle policy (keep last 20 images).
 - **AppRegistry application** (`resume-agent`) so the stack appears under **AWS Console → myApplications**.
 - **IAM** role for the instance: **SSM Session Manager** + **ECR pull**.
+- **IAM** role for **GitHub Actions** (OIDC): **ECR push** + **SSM SendCommand** to deploy.
 - **Security group (app):** **80**, **443**, **8000** from the internet (tighten **8000** after HTTPS works); **22** only if you set `ssh_cidr_blocks`.
 - **Security group (db):** MySQL **3306** only from the app SG.
 - **RDS MySQL** (`db.t4g.micro` by default) + subnet group.
@@ -43,9 +44,11 @@ State, secrets, and `terraform.tfvars` are your responsibility — do **not** co
 
 1. **Tools:** [Terraform](https://developer.hashicorp.com/terraform/install) ≥ 1.5, [AWS CLI](https://docs.aws.amazon.com/cli/) configured (`aws sts get-caller-identity` works).
 
-2. **Build & push the image to ECR** (after first `terraform apply` creates the repo):
-   - **GitHub:** set secrets `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `AWS_ECR_REPOSITORY` (full URI from `terraform output ecr_repository_url`), then run workflow **Deploy to ECR**.
-   - Or locally: `aws ecr get-login-password ... | docker login ...` then `docker buildx build --platform linux/arm64 --push -t $URI:latest .`
+2. **Git → AWS deploy** (ECR + EC2 via SSM). After `terraform apply` creates the OIDC role + EC2:
+   - **GitHub secret:** `AWS_ROLE_TO_ASSUME` = `terraform output -raw github_actions_role_arn`
+   - **GitHub vars:** `AWS_REGION=us-east-1`, `AWS_ECR_REPOSITORY` = `terraform output -raw ecr_repository_url`, `EC2_INSTANCE_ID` = `terraform output -raw instance_id`
+   - Push to `main` or run workflow **Deploy to AWS** (`workflow_dispatch`). Builds **linux/arm64**, pushes `:latest` + git SHA, then SSM runs `/opt/resume-agent/deploy.sh` (keeps `.env` + `/data`).
+   - Or locally: `aws ecr get-login-password ... | docker login ...` then `docker buildx build --platform linux/arm64 --push -t $URI:latest .` and SSM `deploy.sh`.
 
 3. **Configure Terraform**
    ```bash

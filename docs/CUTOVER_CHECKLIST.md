@@ -23,7 +23,7 @@ Do these when you have time; they do not bill anything by themselves.
 1. **Commit** `aws/terraform/.terraform.lock.hcl` (provider pins for repeatable `terraform apply`).
 2. **Copy** `aws/terraform/terraform.tfvars.example` → `terraform.tfvars` (local only; never commit secrets).
 3. **Install** [Terraform](https://developer.hashicorp.com/terraform/install) and [AWS CLI](https://docs.aws.amazon.com/cli/) on the machine you’ll use to deploy.
-4. **GitHub → Deploy to ECR** (optional until billing): repo secrets you will set after AWS works: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `AWS_ECR_REPOSITORY` (full ECR URL from first Terraform apply).
+4. **GitHub → Deploy to AWS** (optional until billing): after Terraform, set secret `AWS_ROLE_TO_ASSUME` (OIDC role ARN) and vars `AWS_REGION`, `AWS_ECR_REPOSITORY`, `EC2_INSTANCE_ID` — see [aws/README.md](../aws/README.md).
 
 ## Cutover: after AWS can provision resources
 

@@ -1,32 +1,42 @@
-# Optional: push the same image GitHub builds to Amazon ECR.
-# Prerequisites: terraform apply in aws/terraform/, IAM user or OIDC role with ecr:PutImage, etc.
+# Build linux/arm64 → push ECR → SSM pull/recreate on the Graviton EC2.
 #
-# GitHub repo secrets:
-#   AWS_ACCESS_KEY_ID
-#   AWS_SECRET_ACCESS_KEY
-#   AWS_REGION          (e.g. us-east-1)
-#   AWS_ECR_REPOSITORY  (full URI: 123456789.dkr.ecr.us-east-1.amazonaws.com/resume-agent)
+# Auth: GitHub OIDC (no long-lived AWS keys). Terraform creates the role:
+#   terraform output -raw github_actions_role_arn
+#
+# GitHub configuration (set once):
+#   Secret:  AWS_ROLE_TO_ASSUME   = that role ARN
+#   Vars:    AWS_REGION           = us-east-1
+#            AWS_ECR_REPOSITORY   = terraform output ecr_repository_url
+#            EC2_INSTANCE_ID      = terraform output instance_id
+#
+# Preserves /opt/resume-agent/.env and /opt/resume-agent/data on the host.
 
-name: Deploy to ECR
+name: Deploy to AWS
 
 on:
+  push:
+    branches: [main, master]
   workflow_dispatch:
 
 permissions:
   contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-aws
+  cancel-in-progress: false
 
 jobs:
-  push-ecr:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
 
       - name: Log in to ECR
         uses: aws-actions/amazon-ecr-login@v2
@@ -37,12 +47,63 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and push
+      - name: Build and push (linux/arm64)
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/arm64
           tags: |
-            ${{ secrets.AWS_ECR_REPOSITORY }}:latest
-            ${{ secrets.AWS_ECR_REPOSITORY }}:${{ github.sha }}
+            ${{ vars.AWS_ECR_REPOSITORY }}:latest
+            ${{ vars.AWS_ECR_REPOSITORY }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy on EC2 via SSM
+        env:
+          INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+          IMAGE: ${{ vars.AWS_ECR_REPOSITORY }}:latest
+        run: |
+          set -euo pipefail
+          if [[ -z "${INSTANCE_ID}" || -z "${IMAGE}" ]]; then
+            echo "Missing vars EC2_INSTANCE_ID and/or AWS_ECR_REPOSITORY" >&2
+            exit 1
+          fi
+          PARAMS=$(jq -nc --arg img "$IMAGE" '{
+            commands: [
+              "set -euxo pipefail",
+              "test -x /opt/resume-agent/deploy.sh",
+              ("/opt/resume-agent/deploy.sh " + $img)
+            ]
+          }')
+          echo "$PARAMS" > /tmp/ssm-params.json
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --comment "resume-agent deploy ${GITHUB_SHA}" \
+            --timeout-seconds 900 \
+            --parameters file:///tmp/ssm-params.json \
+            --query "Command.CommandId" \
+            --output text)
+          echo "SSM CommandId=$COMMAND_ID"
+          for i in $(seq 1 90); do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
+              --instance-id "$INSTANCE_ID" \
+              --query "Status" \
+              --output text 2>/dev/null || echo "Pending")
+            echo "SSM status=$STATUS (attempt $i)"
+            case "$STATUS" in
+              Success) exit 0 ;;
+              Failed|Cancelled|TimedOut)
+                aws ssm get-command-invocation \
+                  --command-id "$COMMAND_ID" \
+                  --instance-id "$INSTANCE_ID" \
+                  --output json
+                exit 1
+                ;;
+            esac
+            sleep 10
+          done
+          echo "Timed out waiting for SSM deploy" >&2
+          exit 1
