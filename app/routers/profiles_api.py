@@ -90,17 +90,15 @@ class ProfileTruthUpdateBody(BaseModel):
 
 
 def _uid(request: Request) -> int:
-    return int(request.session.get("user_id", settings.default_user_id))
+    from app.auth.session_user import session_user_id
+
+    return session_user_id(request)
 
 
 def _require_real_user(request: Request) -> int:
-    uid = _uid(request)
-    if uid == settings.default_user_id:
-        raise HTTPException(
-            status_code=403,
-            detail="Log in with a registered account to manage profile résumés.",
-        )
-    return uid
+    from app.auth.session_user import require_authenticated_user_id
+
+    return require_authenticated_user_id(request)
 
 
 def _owned_disk_profile(conn, uid: int, profile_id: int):

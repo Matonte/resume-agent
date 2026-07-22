@@ -41,17 +41,15 @@ _ALLOWED_RESUME = {".docx", ".txt"}
 
 
 def _session_uid(request: Request) -> int:
-    return int(request.session.get("user_id", settings.default_user_id))
+    from app.auth.session_user import session_user_id
+
+    return session_user_id(request)
 
 
 def _require_real_user(request: Request) -> int:
-    uid = _session_uid(request)
-    if uid == settings.default_user_id:
-        raise HTTPException(
-            status_code=403,
-            detail="Log in with a registered account to use onboarding.",
-        )
-    return uid
+    from app.auth.session_user import require_authenticated_user_id
+
+    return require_authenticated_user_id(request)
 
 
 @router.get("/status")

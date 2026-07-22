@@ -10,10 +10,12 @@ from app.storage.db import get_conn
 
 
 def raise_if_onboarding_incomplete(request: Request) -> None:
-    """403 when a real user must finish onboarding; no-op for default workspace."""
-    uid = int(request.session.get("user_id", settings.default_user_id))
-    if uid == settings.default_user_id:
+    """403 when a real user must finish onboarding; no-op for anonymous sessions."""
+    from app.auth.session_user import session_has_login, session_user_id
+
+    if not session_has_login(request):
         return
+    uid = session_user_id(request)
     with get_conn() as conn:
         u = get_user_by_id(conn, uid)
     if u and user_must_complete_onboarding(

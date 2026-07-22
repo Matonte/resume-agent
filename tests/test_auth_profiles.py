@@ -97,3 +97,37 @@ def test_candidate_data_context_per_profile(isolated_outputs, monkeypatch) -> No
     finally:
         reset_candidate_token(token)
     assert get_candidate_data_dir().name == "data"
+
+
+def test_rag_profile_id_when_default_user_is_tenant(isolated_outputs) -> None:
+    """DEFAULT_USER_ID pointing at a real tenant must still enable per-profile RAG."""
+    from app.auth.passwords import hash_password
+    from app.storage.accounts import create_user_with_profile, rag_profile_id_for_user
+
+    with get_conn() as conn:
+        uid, pid = create_user_with_profile(
+            conn,
+            email=f"rag_{uuid.uuid4().hex[:8]}@example.com",
+            password_hash=hash_password("password123"),
+            display_name="Rag",
+        )
+        assert rag_profile_id_for_user(conn, uid, default_user_id=uid) == pid
+        assert rag_profile_id_for_user(conn, 1, default_user_id=1) is None
+
+
+def test_me_authenticated_flag(client: TestClient) -> None:
+    client.post("/api/auth/logout")
+    anon = client.get("/api/auth/me").json()
+    assert anon["authenticated"] is False
+
+    email = f"authflag_{uuid.uuid4().hex[:10]}@example.com"
+    assert (
+        client.post(
+            "/api/auth/register",
+            json={"email": email, "password": "password123", "display_name": "A"},
+        ).status_code
+        == 200
+    )
+    me = client.get("/api/auth/me").json()
+    assert me["authenticated"] is True
+    assert me["email"] == email.lower()

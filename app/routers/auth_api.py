@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, EmailStr, Field
 
 from app.auth.passwords import hash_password, verify_password
+from app.auth.session_user import session_has_login, session_user_id
 from app.config import settings
 from app.storage.accounts import (
     User,
@@ -44,7 +45,7 @@ class ContributionsOptInBody(BaseModel):
     enabled: bool
 
 
-def _public_user(u: User) -> dict[str, Any]:
+def _public_user(u: User, *, authenticated: bool) -> dict[str, Any]:
     prof = None
     with get_conn() as conn:
         if u.active_profile_id:
@@ -63,6 +64,8 @@ def _public_user(u: User) -> dict[str, Any]:
             u, default_user_id=settings.default_user_id
         ),
         "contribute_learning_opt_in": bool(u.contribute_learning_opt_in),
+        "authenticated": authenticated,
+        "use_builtin_profile": bool(prof.use_builtin) if prof else True,
     }
 
 
@@ -92,7 +95,7 @@ def register(request: Request, body: RegisterBody) -> Any:
     with get_conn() as conn:
         u = get_user_by_id(conn, uid)
     assert u is not None
-    return {"ok": True, "user": _public_user(u)}
+    return {"ok": True, "user": _public_user(u, authenticated=True)}
 
 
 @router.post("/login")
@@ -109,7 +112,7 @@ def login(request: Request, body: LoginBody) -> Any:
     with get_conn() as conn:
         fresh = get_user_by_id(conn, u.id)
     assert fresh is not None
-    return {"ok": True, "user": _public_user(fresh)}
+    return {"ok": True, "user": _public_user(fresh, authenticated=True)}
 
 
 @router.post("/logout")
@@ -120,13 +123,19 @@ def logout(request: Request) -> Any:
 
 @router.patch("/me/contributions-opt-in")
 def patch_contributions_opt_in(request: Request, body: ContributionsOptInBody) -> Any:
-    uid = int(request.session.get("user_id", settings.default_user_id))
-    if uid == settings.default_user_id:
+    if not session_has_login(request):
         raise HTTPException(
             status_code=400,
-            detail="The default workspace cannot change contribution preferences.",
+            detail="Sign in to change contribution preferences.",
         )
+    uid = session_user_id(request)
     with get_conn() as conn:
+        u_check = get_user_by_id(conn, uid)
+        if u_check and u_check.email in RESERVED_EMAILS:
+            raise HTTPException(
+                status_code=400,
+                detail="The default workspace cannot change contribution preferences.",
+            )
         conn.execute(
             "UPDATE users SET contribute_learning_opt_in = ? WHERE id = ?",
             (1 if body.enabled else 0, uid),
@@ -135,17 +144,18 @@ def patch_contributions_opt_in(request: Request, body: ContributionsOptInBody) -
         u = get_user_by_id(conn, uid)
     if not u:
         raise HTTPException(status_code=404, detail="user not found")
-    return {"ok": True, "user": _public_user(u)}
+    return {"ok": True, "user": _public_user(u, authenticated=True)}
 
 
 @router.get("/me")
 def me(request: Request) -> Any:
-    uid = int(request.session.get("user_id", settings.default_user_id))
+    authenticated = session_has_login(request)
+    uid = session_user_id(request)
     with get_conn() as conn:
         u = get_user_by_id(conn, uid)
     if not u:
         raise HTTPException(status_code=404, detail="user not found")
-    return _public_user(u)
+    return _public_user(u, authenticated=authenticated)
 
 
 __all__ = ["router"]

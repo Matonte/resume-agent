@@ -43,15 +43,20 @@
       return;
     }
     const u = await res.json();
-    const isDefault = u.id === 1;
-    meLine.textContent = isDefault
-      ? "Default workspace (repository data/). Log in for your own isolated resume packs."
-      : `${u.display_name || u.email} · ${u.email} · active profile #${u.active_profile_id || "—"}`;
-    logoutBtn.hidden = isDefault;
+    const signedIn = !!u.authenticated;
+    const builtin = !!u.use_builtin_profile || u.id === 1;
+    if (!signedIn) {
+      meLine.textContent = builtin
+        ? "Default workspace (repository data/). Log in for your own isolated resume packs."
+        : `Using account data for ${u.email} anonymously. Log in to manage résumés and profile.`;
+    } else {
+      meLine.textContent = `${u.display_name || u.email} · ${u.email} · active profile #${u.active_profile_id || "—"}`;
+    }
+    logoutBtn.hidden = !signedIn;
     profilesPanel.hidden = false;
     activeProfileId = u.active_profile_id || null;
     await loadProfiles(u.active_profile_id);
-    await refreshResumePanel(isDefault);
+    await refreshResumePanel(!signedIn || builtin);
   }
 
   async function refreshResumePanel(isDefault) {

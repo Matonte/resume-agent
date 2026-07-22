@@ -115,6 +115,53 @@ def seed_profile_from_repo_candidate_pack(
     return written
 
 
+def register_profile_source_resumes(
+    conn: sqlite3.Connection,
+    *,
+    user_id: int,
+    profile_id: int,
+) -> list[str]:
+    """Index ``source_resumes/*.docx`` under the profile pack as ``profile_resume`` assets.
+
+    Idempotent: skips filenames already registered for this profile.
+    Rel paths are under ``outputs/`` (e.g. ``user_profiles/3/3/source_resumes/...``).
+    """
+    disk = profile_disk_dir(user_id, profile_id)
+    src_dir = disk / "source_resumes"
+    if not src_dir.is_dir():
+        return []
+    existing = {
+        (row["original_name"] or Path(str(row["rel_path"])).name).strip().lower()
+        for row in list_assets_for_profile(
+            conn, profile_id, kinds=("resume", "profile_resume")
+        )
+    }
+    rel_prefix = str(Path(USER_PROFILES_ROOT) / str(user_id) / str(profile_id) / "source_resumes")
+    registered: list[str] = []
+    for path in sorted(src_dir.iterdir()):
+        if not path.is_file():
+            continue
+        if path.suffix.lower() not in {".docx", ".txt"}:
+            continue
+        name = path.name
+        if name.strip().lower() in existing:
+            continue
+        rel = f"{rel_prefix}/{name}".replace("\\", "/")
+        insert_onboarding_asset(
+            conn,
+            user_id=user_id,
+            profile_id=profile_id,
+            kind="profile_resume",
+            rel_path=rel,
+            original_name=name,
+            byte_size=path.stat().st_size,
+            extra_json={"source": "source_resumes"},
+        )
+        existing.add(name.strip().lower())
+        registered.append(name)
+    return registered
+
+
 def seed_profile_from_repo_template(dest: Path) -> None:
     """Backward-compatible name: seeds empty tenant packs only."""
     seed_profile_empty_candidate_pack(dest)
@@ -372,9 +419,14 @@ def rag_profile_id_for_user(
     *,
     default_user_id: int = 1,
 ) -> Optional[int]:
-    """Active on-disk profile id for per-profile RAG; None for built-in workspace."""
-    if user_id == default_user_id:
-        return None
+    """Active on-disk profile id for per-profile RAG; None for built-in workspace.
+
+    Keyed by the active profile's ``use_builtin`` flag — not by whether
+    ``user_id`` equals ``DEFAULT_USER_ID``. When the personal account is the
+    anonymous default (e.g. DEFAULT_USER_ID=3), RAG must still use that
+    tenant's chunks.
+    """
+    del default_user_id  # retained for call-site compatibility
     u = get_user_by_id(conn, user_id)
     if not u or not u.active_profile_id:
         return None
@@ -522,6 +574,7 @@ __all__ = [
     "list_assets_for_profile",
     "list_profiles",
     "rag_profile_id_for_user",
+    "register_profile_source_resumes",
     "onboarding_upload_rel_prefix",
     "profile_disk_dir",
     "profile_upload_rel_prefix",

@@ -34,6 +34,7 @@ from app.storage.accounts import (  # noqa: E402
     get_user_by_email,
     mark_onboarding_complete,
     profile_disk_dir,
+    register_profile_source_resumes,
     seed_profile_from_repo_candidate_pack,
     update_profile_candidate,
 )
@@ -105,6 +106,18 @@ def main() -> int:
             candidate_email=cand_email,
         )
         mark_onboarding_complete(conn, user_id)
+        assets = register_profile_source_resumes(
+            conn, user_id=user_id, profile_id=profile_id
+        )
+        if assets:
+            written.append(f"assets:{len(assets)}")
+        try:
+            from app.services.resume_rag import rebuild_profile_rag
+
+            n = rebuild_profile_rag(conn, profile_id, user_id)
+            written.append(f"rag_chunks:{n}")
+        except Exception as exc:  # noqa: BLE001
+            written.append(f"rag_skip:{exc}")
         prof = get_profile(conn, profile_id)
 
     print(

@@ -63,7 +63,9 @@ class OnboardingGateMiddleware(BaseHTTPMiddleware):
         path = request.url.path
         if _allow_without_onboarding(path):
             return await call_next(request)
-        uid = int(request.session.get("user_id", settings.default_user_id))
+        if "user_id" not in request.session:
+            return await call_next(request)
+        uid = int(request.session["user_id"])
         with get_conn() as conn:
             u = get_user_by_id(conn, uid)
         if not u or not user_must_complete_onboarding(

@@ -32,6 +32,7 @@ from app.services.data_loader import (
     load_story_bank,
     load_truth_model,
 )
+from app.services.data_context import get_candidate_data_dir
 from app.services.fit_score import compute_fit_score
 from app.services.llm import is_available as llm_is_available
 from app.config import settings
@@ -136,7 +137,9 @@ def _safe_slug(raw: str | None, fallback: str) -> str:
 
 
 def _rag_profile_id(request: Request) -> Optional[int]:
-    uid = int(request.session.get("user_id", settings.default_user_id))
+    from app.auth.session_user import session_user_id
+
+    uid = session_user_id(request)
     with get_conn() as conn:
         return rag_profile_id_for_user(conn, uid, default_user_id=settings.default_user_id)
 
@@ -169,6 +172,30 @@ def health():
         status="ok",
         loaded_files=mf,
     )
+
+
+@router.get("/candidate-pack")
+def candidate_pack(request: Request) -> Dict[str, Any]:
+    """Active candidate JSON pack for this session (respects ProfileDataMiddleware).
+
+    Unlike ``/api/health`` (which skips middleware and always reads repo ``data/``),
+    this endpoint proves tenant isolation for truth/stories/answers.
+    """
+    from app.auth.session_user import session_has_login, session_user_id
+
+    truth = load_truth_model()
+    cand = truth.get("candidate") or {}
+    root = get_candidate_data_dir()
+    return {
+        "user_id": session_user_id(request),
+        "authenticated": session_has_login(request),
+        "candidate_data_dir": str(root),
+        "preferred_name": cand.get("preferred_name") or "",
+        "truth_model_roles": len(truth.get("roles") or []),
+        "stories": len(load_story_bank()),
+        "answer_categories": len(load_answer_bank()),
+        "rag_profile_id": _rag_profile_id(request),
+    }
 
 
 @router.get("/archetypes")

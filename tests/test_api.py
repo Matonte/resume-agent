@@ -20,6 +20,16 @@ def test_health():
     assert "web_search_configured" in data["loaded_files"]
 
 
+def test_candidate_pack():
+    res = client.get("/api/candidate-pack")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["truth_model_roles"] > 0
+    assert "candidate_data_dir" in data
+    assert "rag_profile_id" in data
+    assert data["authenticated"] is False
+
+
 def test_classify():
     res = client.post(
         "/api/classify",
