@@ -26,7 +26,26 @@ DEFAULT_USER_ID=1
 DAILY_RUN_USER_ID=1
 GMAIL_ADDRESS=
 GMAIL_APP_PASSWORD=
+OUTPUTS_DIR=/data/outputs
+PLAYWRIGHT_PROFILES_DIR=/data/playwright
+DATABASE_URL=${database_url}
+MYSQL_HOST=${db_host}
+MYSQL_DATABASE=${db_name}
+MYSQL_USER=${db_username}
+MYSQL_PASSWORD=${db_password}
 EOF
+  chmod 600 /opt/resume-agent/.env
+else
+  # Keep existing secrets; refresh DB endpoint/password from Terraform.
+  grep -vE '^(DATABASE_URL|MYSQL_HOST|MYSQL_DATABASE|MYSQL_USER|MYSQL_PASSWORD)=' /opt/resume-agent/.env > /opt/resume-agent/.env.tmp || true
+  cat >>/opt/resume-agent/.env.tmp <<EOF
+DATABASE_URL=${database_url}
+MYSQL_HOST=${db_host}
+MYSQL_DATABASE=${db_name}
+MYSQL_USER=${db_username}
+MYSQL_PASSWORD=${db_password}
+EOF
+  mv /opt/resume-agent/.env.tmp /opt/resume-agent/.env
   chmod 600 /opt/resume-agent/.env
 fi
 

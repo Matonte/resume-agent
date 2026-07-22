@@ -31,6 +31,15 @@ output "ssm_session_hint" {
   value       = "aws ssm start-session --target ${aws_instance.app.id} --region ${var.aws_region}"
 }
 
+output "rds_endpoint" {
+  description = "MySQL hostname (private). App reaches it via DATABASE_URL on the instance."
+  value       = aws_db_instance.app.address
+}
+
+output "rds_db_name" {
+  value = aws_db_instance.app.db_name
+}
+
 output "env_file_on_instance" {
-  value = "/opt/resume-agent/.env — add OPENAI_API_KEY, Gmail, etc. then: docker restart resume-agent"
+  value = "/opt/resume-agent/.env — add OPENAI_API_KEY, Gmail, Contact Advisor URLs, then: docker restart resume-agent"
 }

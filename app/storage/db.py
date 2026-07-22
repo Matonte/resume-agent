@@ -12,6 +12,13 @@ from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional
 
 from app.config import settings
+from app.storage.sql_compat import (
+    MysqlConnectionProxy,
+    connect_mysql,
+    connect_sqlite,
+    mysql_table_columns,
+    use_mysql,
+)
 
 
 STATUS_NEW = "new"
@@ -182,12 +189,14 @@ CREATE INDEX IF NOT EXISTS idx_onboarding_assets_user ON user_onboarding_assets(
 """
 
 
-def _table_columns(conn: sqlite3.Connection, table: str) -> set[str]:
+def _table_columns(conn: Any, table: str) -> set[str]:
+    if isinstance(conn, MysqlConnectionProxy):
+        return mysql_table_columns(conn, table)
     cur = conn.execute(f"PRAGMA table_info({table})")
     return {str(r[1]) for r in cur.fetchall()}
 
 
-def _migrate(conn: sqlite3.Connection) -> None:
+def _migrate(conn: Any) -> None:
     conn.executescript(_BASE_SCHEMA)
     # Upgrade path: old DBs missing columns / tables.
     jcols = _table_columns(conn, "jobs")
@@ -199,9 +208,12 @@ def _migrate(conn: sqlite3.Connection) -> None:
 
     jcols2 = _table_columns(conn, "jobs")
     if jcols2 and "user_id" in jcols2:
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_jobs_user_run ON jobs(user_id, daily_run_id)"
-        )
+        try:
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_jobs_user_run ON jobs(user_id, daily_run_id)"
+            )
+        except Exception:
+            pass
 
     jcols_apply = _table_columns(conn, "jobs")
     if jcols_apply and "apply_url" not in jcols_apply:
@@ -239,9 +251,12 @@ def _migrate(conn: sqlite3.Connection) -> None:
             )
             """
         )
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_rag_chunks_profile ON resume_rag_chunks(profile_id)"
-        )
+        try:
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_rag_chunks_profile ON resume_rag_chunks(profile_id)"
+            )
+        except Exception:
+            pass
 
     if not _table_columns(conn, "archetype_source_docx"):
         conn.execute(
@@ -273,13 +288,24 @@ def _migrate(conn: sqlite3.Connection) -> None:
             )
             """
         )
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_onboarding_assets_user ON user_onboarding_assets(user_id)"
-        )
+        try:
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_onboarding_assets_user ON user_onboarding_assets(user_id)"
+            )
+        except Exception:
+            pass
 
     if _table_columns(conn, "users") and _table_columns(conn, "resume_profiles"):
-        row = conn.execute("SELECT COUNT(*) FROM users").fetchone()
-        if row and row[0] == 0:
+        row = conn.execute("SELECT COUNT(*) AS c FROM users").fetchone()
+        count = 0
+        if row is not None:
+            if isinstance(row, dict):
+                count = int(row.get("c") or 0)
+            elif hasattr(row, "keys") and "c" in row.keys():
+                count = int(row["c"])
+            else:
+                count = int(row[0])
+        if count == 0:
             conn.execute(
                 """
                 INSERT INTO users (
@@ -305,7 +331,11 @@ def _migrate(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
-def init_db(db_path: Optional[Path | str] = None) -> Path:
+def init_db(db_path: Optional[Path | str] = None) -> Optional[Path]:
+    if use_mysql():
+        with connect_mysql() as conn:
+            _migrate(conn)
+        return None
     path = _resolve_db_path(db_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(path) as conn:
@@ -315,15 +345,16 @@ def init_db(db_path: Optional[Path | str] = None) -> Path:
 
 
 @contextmanager
-def get_conn(db_path: Optional[Path | str] = None) -> Iterator[sqlite3.Connection]:
+def get_conn(db_path: Optional[Path | str] = None) -> Iterator[Any]:
+    if use_mysql():
+        init_db()
+        with connect_mysql() as conn:
+            yield conn
+        return
     path = init_db(db_path)
-    conn = sqlite3.connect(path)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    try:
+    assert path is not None
+    with connect_sqlite(str(path)) as conn:
         yield conn
-    finally:
-        conn.close()
 
 
 def _dt_to_iso(value: Optional[datetime]) -> Optional[str]:
@@ -339,9 +370,10 @@ def _iso_to_dt(value: Optional[str]) -> Optional[datetime]:
         return None
 
 
-def _row_to_job(row: sqlite3.Row) -> JobRecord:
-    uid = row["user_id"] if "user_id" in row.keys() else 1
-    apply_u = row["apply_url"] if "apply_url" in row.keys() else None
+def _row_to_job(row: Any) -> JobRecord:
+    keys = row.keys() if hasattr(row, "keys") else []
+    uid = row["user_id"] if "user_id" in keys else 1
+    apply_u = row["apply_url"] if "apply_url" in keys else None
     return JobRecord(
         id=row["id"],
         source=row["source"],

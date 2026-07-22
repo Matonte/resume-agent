@@ -45,6 +45,14 @@ class Settings(BaseModel):
 
     outputs_dir: str = _strip(os.getenv("OUTPUTS_DIR")) or str(_REPO_ROOT / "outputs")
 
+    # Structured DB: unset → SQLite under outputs/. Production AWS sets DATABASE_URL (RDS MySQL).
+    database_url: str = _strip(os.getenv("DATABASE_URL"))
+    mysql_host: str = _strip(os.getenv("MYSQL_HOST"))
+    mysql_port: str = _strip(os.getenv("MYSQL_PORT")) or "3306"
+    mysql_user: str = _strip(os.getenv("MYSQL_USER"))
+    mysql_password: str = _strip(os.getenv("MYSQL_PASSWORD"))
+    mysql_database: str = _strip(os.getenv("MYSQL_DATABASE")) or "resume_agent"
+
     # Session cookie signing (set in production). Default is dev-only.
     session_secret: str = _strip(os.getenv("SESSION_SECRET")) or "dev-session-secret-change-me"
 

@@ -18,14 +18,69 @@ variable "repository_name" {
 
 variable "instance_type" {
   type        = string
-  description = "Graviton (ARM) instance. t4g.medium = 4 GiB RAM (minimum practical for Playwright + users)."
-  default     = "t4g.medium"
+  description = "Graviton (ARM) instance. t4g.large (8 GiB) recommended for resume-agent + contact-advisor + Playwright."
+  default     = "t4g.large"
 }
 
 variable "root_volume_gb" {
   type        = number
-  description = "Root gp3 volume size (artifacts + SQLite + browser profiles grow over time)."
+  description = "Root gp3 volume size (artifacts + uploads + browser profiles grow over time)."
   default     = 40
+}
+
+variable "db_instance_class" {
+  type        = string
+  description = "RDS MySQL class (Graviton). db.t4g.micro is the cheap starting point."
+  default     = "db.t4g.micro"
+}
+
+variable "db_engine_version" {
+  type        = string
+  description = "MySQL engine version."
+  default     = "8.0"
+}
+
+variable "db_name" {
+  type    = string
+  default = "resume_agent"
+}
+
+variable "db_username" {
+  type    = string
+  default = "resume_agent"
+}
+
+variable "db_allocated_storage_gb" {
+  type    = number
+  default = 20
+}
+
+variable "db_max_allocated_storage_gb" {
+  type        = number
+  default     = 100
+  description = "Autoscaling storage ceiling (gp3)."
+}
+
+variable "db_multi_az" {
+  type        = bool
+  default     = false
+  description = "Multi-AZ roughly doubles RDS cost; leave false until you need HA."
+}
+
+variable "db_backup_retention_days" {
+  type    = number
+  default = 7
+}
+
+variable "db_skip_final_snapshot" {
+  type        = bool
+  default     = true
+  description = "Set false for production tear-down protection."
+}
+
+variable "db_deletion_protection" {
+  type    = bool
+  default = false
 }
 
 variable "public_subnet_id" {

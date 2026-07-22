@@ -111,17 +111,22 @@ resource "aws_eip" "app" {
 }
 
 locals {
-  ecr_host                 = split("/", aws_ecr_repository.resume_agent.repository_url)[0]
-  dashboard_base_url       = var.app_hostname != "" ? "https://${var.app_hostname}" : "http://${aws_eip.app.public_ip}:8000"
-  install_caddy            = var.app_hostname != ""
-  caddyfile                = local.install_caddy ? "${var.app_hostname} {\n  reverse_proxy 127.0.0.1:8000\n}\n" : ""
-  user_data                = base64encode(templatefile("${path.module}/user-data.sh.tpl", {
-    ecr_image            = "${aws_ecr_repository.resume_agent.repository_url}:latest"
-    ecr_registry_host    = local.ecr_host
-    aws_region           = var.aws_region
-    dashboard_base_url   = local.dashboard_base_url
-    install_caddy        = local.install_caddy
-    caddyfile            = local.caddyfile
+  ecr_host           = split("/", aws_ecr_repository.resume_agent.repository_url)[0]
+  dashboard_base_url = var.app_hostname != "" ? "https://${var.app_hostname}" : "http://${aws_eip.app.public_ip}:8000"
+  install_caddy      = var.app_hostname != ""
+  caddyfile          = local.install_caddy ? "${var.app_hostname} {\n  reverse_proxy 127.0.0.1:8000\n}\n" : ""
+  user_data = base64encode(templatefile("${path.module}/user-data.sh.tpl", {
+    ecr_image          = "${aws_ecr_repository.resume_agent.repository_url}:latest"
+    ecr_registry_host  = local.ecr_host
+    aws_region         = var.aws_region
+    dashboard_base_url = local.dashboard_base_url
+    install_caddy      = local.install_caddy
+    caddyfile          = local.caddyfile
+    database_url       = local.database_url
+    db_host            = aws_db_instance.app.address
+    db_name            = var.db_name
+    db_username        = var.db_username
+    db_password        = random_password.db.result
   }))
 }
 

@@ -40,12 +40,13 @@ Estimated time: **~30–60 minutes** if the image is already in ECR.
    ```bash
    terraform apply
    ```
+   Creates **EC2 (`t4g.large`)**, **RDS MySQL**, EIP, optional Route53, and writes `DATABASE_URL` into instance user-data.
 6. Point DNS at the **Elastic IP** (or use Route53 variables in `terraform.tfvars`).
-7. **SSM Session Manager** on the instance: edit `/opt/resume-agent/.env`, set `OPENAI_API_KEY`, `DASHBOARD_BASE_URL`, Gmail if needed, then `docker restart resume-agent`.
+7. **SSM Session Manager** on the instance: edit `/opt/resume-agent/.env`, set `OPENAI_API_KEY`, `DASHBOARD_BASE_URL`, Gmail if needed, optional Contact Advisor URLs, then `docker restart resume-agent`.
 
 Full detail: [aws/README.md](../aws/README.md).
 
 ## Cost reminder
 
 **Local:** \$0 (plus your OpenAI usage if enabled).  
-**AWS:** starts when you `terraform apply` (EC2, EBS, ECR, etc.). Use the [AWS Pricing Calculator](https://calculator.aws/) before the final apply if you want a firm number.
+**AWS:** starts when you `terraform apply` (EC2 + RDS + EBS + ECR, etc. — roughly **\$65–85/mo** for `t4g.large` + `db.t4g.micro`). Use the [AWS Pricing Calculator](https://calculator.aws/) before the final apply if you want a firm number.
