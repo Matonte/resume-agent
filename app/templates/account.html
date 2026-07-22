@@ -16,8 +16,9 @@
       <div>
         <h1>Account <span class="wordmark-tag" aria-hidden="true">Workspace</span></h1>
         <p class="subtitle">
-          Register to get your own resume data pack (copied from the bundled templates).
+          Register to get your own resume data pack.
           New accounts must upload a résumé and job samples once on the <a href="/onboarding">setup page</a> before the rest of the app unlocks.
+          After setup, upload updated résumés below to refresh the active profile used by the agent.
           The default workspace (no login) uses the repository <code>data/</code> folder.
         </p>
       </div>
@@ -70,6 +71,29 @@
         <button type="submit">Add profile</button>
       </form>
       <p id="profile-status" class="status" hidden></p>
+    </section>
+
+    <section class="panel" id="resume-upload-panel" hidden>
+      <h2 class="panel-heading">Update active profile from résumé</h2>
+      <p class="muted">
+        Upload <code>.docx</code> or <code>.txt</code> into the active profile pack.
+        Processing merges facts into the truth model and rebuilds RAG for tailoring.
+      </p>
+      <p id="resume-active-line" class="muted"></p>
+      <form id="resume-upload-form" class="form-grid">
+        <label><span>Résumé file</span><input name="file" type="file" accept=".docx,.txt" required /></label>
+        <button type="submit">Upload</button>
+      </form>
+      <div class="form-grid" style="margin-top:0.75rem;">
+        <button type="button" id="process-resumes-btn">Process into profile</button>
+        <label class="inline-check">
+          <input type="checkbox" id="process-replace-mode" />
+          <span>Replace profile (instead of merge)</span>
+        </label>
+      </div>
+      <p id="resume-list" class="muted" style="margin-top:0.75rem;"></p>
+      <p id="resume-upload-status" class="status" hidden></p>
+      <div id="resume-process-summary" class="muted" hidden style="margin-top:0.75rem;"></div>
     </section>
   </main>
   <script src="/static/account.js"></script>

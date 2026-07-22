@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
 
 from app.config import settings
+from app.services.candidate_profile_io import (
+    has_reviewable_roles,
+    load_profile_truth,
+    profile_review_payload,
+    truth_path,
+)
 from app.services.evidence_schema import normalize_truth_model
 from app.services.onboarding_bootstrap import (
     load_upload_texts_for_user,
@@ -49,74 +54,6 @@ def _require_real_user(request: Request) -> int:
     return uid
 
 
-def _truth_path(candir: Path) -> Path:
-    return candir / "master_truth_model.json"
-
-
-def _load_profile_truth(candir: Path) -> Dict[str, Any]:
-    path = _truth_path(candir)
-    if not path.is_file():
-        return normalize_truth_model({"candidate": {}, "roles": []})
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return normalize_truth_model({"candidate": {}, "roles": []})
-    if not isinstance(raw, dict):
-        return normalize_truth_model({"candidate": {}, "roles": []})
-    return normalize_truth_model(raw)
-
-
-def _has_reviewable_roles(truth: Dict[str, Any]) -> bool:
-    roles = truth.get("roles") or []
-    return isinstance(roles, list) and any(
-        isinstance(r, dict) and (r.get("company") or r.get("core_facts") or r.get("achievements"))
-        for r in roles
-    )
-
-
-def _profile_payload(candir: Path) -> Dict[str, Any]:
-    truth = _load_profile_truth(candir)
-    conflicts = detect_profile_conflicts(truth)
-    candidate = truth.get("candidate") if isinstance(truth.get("candidate"), dict) else {}
-    roles_out: List[Dict[str, Any]] = []
-    for role in truth.get("roles") or []:
-        if not isinstance(role, dict):
-            continue
-        achievements = role.get("achievements") or []
-        roles_out.append(
-            {
-                "id": role.get("id"),
-                "company": role.get("company"),
-                "title": role.get("title"),
-                "location": role.get("location"),
-                "start": role.get("start"),
-                "end": role.get("end"),
-                "is_current": role.get("is_current"),
-                "tech": role.get("tech") or [],
-                "themes": role.get("themes") or [],
-                "achievements": achievements,
-                "core_facts": role.get("core_facts") or [],
-            }
-        )
-    inferred = []
-    layers = truth.get("profile_layers") if isinstance(truth.get("profile_layers"), dict) else {}
-    if isinstance(layers.get("inferred_profile"), list):
-        inferred = layers["inferred_profile"]
-    return {
-        "candidate": {
-            "preferred_name": candidate.get("preferred_name") or "",
-            "headline": candidate.get("headline") or "",
-            "years_experience": candidate.get("years_experience") or 0,
-            "skills": candidate.get("skills") or {},
-        },
-        "roles": roles_out,
-        "inferred_profile": inferred,
-        "conflicts": conflicts,
-        "has_roles": _has_reviewable_roles(truth),
-        "schema_version": truth.get("schema_version"),
-    }
-
-
 @router.get("/status")
 def onboarding_status(request: Request) -> Any:
     uid = _session_uid(request)
@@ -132,8 +69,8 @@ def onboarding_status(request: Request) -> Any:
         if need and pid:
             prof = get_profile_for_user(conn, uid, pid)
             if prof and prof.effective_candidate_dir():
-                truth = _load_profile_truth(prof.effective_candidate_dir())
-                awaiting_review = _has_reviewable_roles(truth)
+                truth = load_profile_truth(prof.effective_candidate_dir())
+                awaiting_review = has_reviewable_roles(truth)
     return {
         "needs_onboarding": need,
         "requires_onboarding": u.requires_onboarding,
@@ -270,7 +207,7 @@ def finish_onboarding(request: Request) -> Any:
             raise HTTPException(status_code=422, detail=msg)
 
         rebuild_profile_rag(conn, pid, uid)
-        payload = _profile_payload(candir)
+        payload = profile_review_payload(candir)
 
     return {
         "ok": True,
@@ -291,7 +228,7 @@ def get_onboarding_profile(request: Request) -> Any:
         if not prof or not prof.effective_candidate_dir():
             raise HTTPException(status_code=400, detail="Profile storage not ready")
         candir = prof.effective_candidate_dir()
-    return {"ok": True, "profile": _profile_payload(candir)}
+    return {"ok": True, "profile": profile_review_payload(candir)}
 
 
 class AchievementEdit(BaseModel):
@@ -345,7 +282,7 @@ def put_onboarding_profile(request: Request, body: ProfileUpdateBody) -> Any:
             raise HTTPException(status_code=400, detail="Profile storage not ready")
         candir = prof.effective_candidate_dir()
 
-    existing = _load_profile_truth(candir)
+    existing = load_profile_truth(candir)
     roles_payload = []
     for role in body.roles:
         achievements = [a.model_dump() for a in role.achievements]
@@ -396,8 +333,8 @@ def put_onboarding_profile(request: Request, body: ProfileUpdateBody) -> Any:
         },
     }
     truth = normalize_truth_model(merged, default_source="user_review")
-    _truth_path(candir).write_text(json.dumps(truth, indent=2), encoding="utf-8")
-    return {"ok": True, "profile": _profile_payload(candir)}
+    truth_path(candir).write_text(json.dumps(truth, indent=2), encoding="utf-8")
+    return {"ok": True, "profile": profile_review_payload(candir)}
 
 
 @router.post("/confirm")
@@ -415,14 +352,14 @@ def confirm_onboarding(request: Request) -> Any:
         if not prof or not prof.effective_candidate_dir():
             raise HTTPException(status_code=400, detail="Profile storage not ready")
         candir = prof.effective_candidate_dir()
-        truth = _load_profile_truth(candir)
+        truth = load_profile_truth(candir)
         # Allow confirm even with empty roles in LLM-off / raw-text mode.
         mark_onboarding_complete(conn, uid)
         rebuild_profile_rag(conn, pid, uid)
     return {
         "ok": True,
         "message": "Profile confirmed. Workspace unlocked.",
-        "has_roles": _has_reviewable_roles(truth),
+        "has_roles": has_reviewable_roles(truth),
         "conflicts_remaining": detect_profile_conflicts(truth),
     }
 

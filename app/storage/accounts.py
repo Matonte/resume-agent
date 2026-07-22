@@ -4,7 +4,7 @@ Tenant isolation: each registered user's on-disk profile under
 ``outputs/user_profiles/<user_id>/<profile_id>/`` holds **only** that user's
 candidate JSON (`master_truth_model.json`, etc.). New profiles are seeded with
 **empty shells**, not a copy of the repo owner's bundled résumé — facts come
-from onboarding merges and (later) per-profile uploads/RAG keyed by profile id.
+from onboarding merges and per-profile résumé uploads/RAG keyed by profile id.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Sequence
 
 from app.config import settings
 
@@ -403,6 +403,17 @@ def ensure_onboarding_upload_dir(user_id: int, profile_id: int) -> Path:
     return base
 
 
+def profile_upload_rel_prefix(user_id: int, profile_id: int) -> str:
+    """Post-onboarding résumé uploads (tenant-isolated under the profile pack)."""
+    return str(Path(USER_PROFILES_ROOT) / str(user_id) / str(profile_id) / "uploads")
+
+
+def ensure_profile_upload_dir(user_id: int, profile_id: int) -> Path:
+    base = settings.outputs_path / profile_upload_rel_prefix(user_id, profile_id)
+    base.mkdir(parents=True, exist_ok=True)
+    return base
+
+
 def insert_onboarding_asset(
     conn: sqlite3.Connection,
     *,
@@ -442,6 +453,44 @@ def count_onboarding_assets(conn: sqlite3.Connection, user_id: int, kind: str) -
     return int(row[0]) if row and row[0] is not None else 0
 
 
+def count_assets_for_profile(
+    conn: sqlite3.Connection, profile_id: int, kind: str
+) -> int:
+    row = conn.execute(
+        "SELECT COUNT(*) FROM user_onboarding_assets WHERE profile_id = ? AND kind = ?",
+        (profile_id, kind),
+    ).fetchone()
+    return int(row[0]) if row and row[0] is not None else 0
+
+
+def list_assets_for_profile(
+    conn: sqlite3.Connection,
+    profile_id: int,
+    *,
+    kinds: Optional[Sequence[str]] = None,
+) -> List[sqlite3.Row]:
+    if kinds:
+        placeholders = ",".join("?" for _ in kinds)
+        return conn.execute(
+            f"""
+            SELECT id, kind, rel_path, original_name, byte_size, created_at
+            FROM user_onboarding_assets
+            WHERE profile_id = ? AND kind IN ({placeholders})
+            ORDER BY id ASC
+            """,
+            (profile_id, *kinds),
+        ).fetchall()
+    return conn.execute(
+        """
+        SELECT id, kind, rel_path, original_name, byte_size, created_at
+        FROM user_onboarding_assets
+        WHERE profile_id = ?
+        ORDER BY id ASC
+        """,
+        (profile_id,),
+    ).fetchall()
+
+
 def mark_onboarding_complete(conn: sqlite3.Connection, user_id: int) -> None:
     conn.execute(
         """
@@ -460,18 +509,22 @@ __all__ = [
     "USER_PROFILES_ROOT",
     "ResumeProfile",
     "User",
+    "count_assets_for_profile",
     "create_extra_profile",
     "create_user_with_profile",
     "ensure_onboarding_upload_dir",
+    "ensure_profile_upload_dir",
     "get_profile",
     "get_profile_for_user",
     "get_user_by_email",
     "get_user_by_id",
     "insert_onboarding_asset",
+    "list_assets_for_profile",
     "list_profiles",
     "rag_profile_id_for_user",
     "onboarding_upload_rel_prefix",
     "profile_disk_dir",
+    "profile_upload_rel_prefix",
     "count_onboarding_assets",
     "mark_onboarding_complete",
     "seed_profile_empty_candidate_pack",

@@ -676,3 +676,15 @@ code {
   font-size: 0.72rem;
   color: var(--fg-muted);
 }
+
+.inline-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: var(--fg-muted);
+}
+
+.inline-check input {
+  width: auto;
+}
