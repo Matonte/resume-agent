@@ -21,5 +21,22 @@ def test_adapt_autoincrement_and_now() -> None:
     sql = "CREATE TABLE t (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL DEFAULT (datetime('now')))"
     out = adapt_sql_for_mysql(sql)
     assert "AUTO_INCREMENT" in out
+    assert "DATETIME" in out
+    assert "CURRENT_TIMESTAMP" in out
+    assert "datetime('now')" not in out
+
+
+def test_adapt_datetime_now_in_values() -> None:
+    out = adapt_sql_for_mysql("INSERT INTO users (id, created_at) VALUES (1, datetime('now'))")
     assert "UTC_TIMESTAMP()" in out
     assert "datetime('now')" not in out
+
+
+def test_adapt_text_pk_and_literal_defaults() -> None:
+    out = adapt_sql_for_mysql(
+        "CREATE TABLE t (id TEXT PRIMARY KEY, jd_full TEXT NOT NULL DEFAULT '', note TEXT)"
+    )
+    assert "VARCHAR(191) PRIMARY KEY" in out
+    assert "jd_full MEDIUMTEXT" in out
+    assert "DEFAULT ''" not in out
+    assert "note VARCHAR(191)" in out
