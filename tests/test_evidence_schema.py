@@ -72,4 +72,6 @@ def test_notes_mention_evidence_gate() -> None:
         "Distributed systems role.", "D_distributed_systems"
     )
     joined = " ".join(draft["notes"]).lower()
-    assert "evidence id" in joined
+    assert "evidence-backed" in joined
+    assert "accuracy guarantee" in joined
+    assert draft.get("evidence_gated") is True

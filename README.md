@@ -2,6 +2,8 @@
 
 Local-first job-hunt assistant: scrape or paste listings, classify against **archetypes**, tailor **resume + cover letter + screening answers** from `data/master_truth_model.json`, optional **web outreach** (recruiter / hiring-manager discovery), and **meeting-advisor** hooks for outreach prep.
 
+**Product promise:** tailor your resume to a specific job without inventing experience. See [docs/ACCURACY.md](docs/ACCURACY.md).
+
 Outputs land under `outputs/`; Playwright profiles under `.playwright/` (both gitignored).
 
 ## What’s in the repo

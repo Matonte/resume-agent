@@ -309,19 +309,19 @@ def generate_resume_draft(
     final_ids = gated_ids
 
     notes = [
-        "Every claim traces back to `master_truth_model.json`; review before submission.",
-        "No résumé claim is emitted without an evidence id.",
-        "LLM rewrites are guardrailed to not introduce new numbers, tools, or scope.",
-        "Verify metrics, titles, and tools match the truth model before sending.",
+        "Accuracy guarantee: every claim stays grounded in your verified experience — we do not invent metrics, titles, tools, or dates.",
+        "Each tailored bullet is evidence-backed; unsupported claims are dropped, not guessed.",
+        "Optional job-language matching may rephrase wording, but not invent new numbers, tools, or scope.",
+        "Quick check before you send: do metrics, titles, and tools still match what you actually did?",
     ]
     if dropped_no_evidence:
         notes.append(
-            f"Dropped {dropped_no_evidence} bullet(s) that lacked evidence ids."
+            f"Dropped {dropped_no_evidence} bullet(s) that were not evidence-backed."
         )
     if archetype_id:
-        notes.append(f"Base resume: archetype `{archetype_id}` (see `data/archetypes/`).")
+        notes.append(f"Resume focus template: `{archetype_id}`.")
     if use_llm and not llm_applied:
-        notes.append("LLM requested but fell back to deterministic output.")
+        notes.append("Job-language matching was requested but fell back to a deterministic draft.")
 
     selected_evidence = []
     for bullet, eid in zip(final_bullets, final_ids):

@@ -40,8 +40,9 @@ def test_notes_include_guardrails():
         "Distributed systems role.", "D_distributed_systems"
     )
     joined = " ".join(draft["notes"]).lower()
-    assert "truth model" in joined
+    assert "accuracy guarantee" in joined or "verified experience" in joined
     assert "claim" in joined or "invent" in joined or "verify" in joined
+    assert draft.get("evidence_gated") is True
 
 
 def test_fallback_when_no_overlap():

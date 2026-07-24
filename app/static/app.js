@@ -283,9 +283,31 @@
 
     const r = data.resume;
     summaryEl.textContent = r.summary;
-    setList(bulletsEl, r.selected_bullets);
+    bulletsEl.innerHTML = "";
+    const evidence = Array.isArray(r.selected_evidence) ? r.selected_evidence : [];
+    (r.selected_bullets || []).forEach((bullet, idx) => {
+      const li = document.createElement("li");
+      li.appendChild(document.createTextNode(bullet));
+      const ev = evidence[idx];
+      const eid = ev && (ev.evidence_id || ev.id);
+      if (eid || r.evidence_gated) {
+        const badge = document.createElement("span");
+        badge.className = "evidence-badge";
+        badge.title = eid ? `Evidence-backed (${eid})` : "Evidence-backed";
+        badge.textContent = "evidence-backed";
+        li.appendChild(badge);
+      }
+      bulletsEl.appendChild(li);
+    });
     setList(notesEl, r.notes);
-    // Mark summary card with an LLM badge when the rewrite actually ran.
+    const accuracyEl = document.getElementById("accuracy-result");
+    if (accuracyEl) {
+      accuracyEl.hidden = false;
+      accuracyEl.textContent = r.evidence_gated
+        ? "Accuracy check: every bullet above is evidence-backed from your verified experience."
+        : "Review claims against your verified experience before sending.";
+    }
+    // Mark summary card with a language-match badge when rewrite actually ran.
     const summaryCard = summaryEl.closest("article");
     if (summaryCard) {
       const existing = summaryCard.querySelector(".llm-badge");
