@@ -220,7 +220,8 @@ def test_default_workspace_cannot_upload_profile_resume(client: TestClient) -> N
         "/api/profiles/1/resumes",
         files={"file": ("cv.txt", b"hello world resume text", "text/plain")},
     )
-    assert res.status_code in (403, 404)
+    # Login gate → 401; if gate is off, endpoint still rejects default workspace.
+    assert res.status_code in (401, 403, 404)
 
 
 def test_upload_rejects_pdf(client: TestClient, monkeypatch) -> None:
