@@ -362,4 +362,13 @@
   loadArchetypes();
   loadLlmStatus();
   loadAdvisorStatus();
+  if (window.ResumeAgentJobContext) {
+    ResumeAgentJobContext.prefillFromJobQuery({
+      description: form.elements.namedItem("description"),
+      title: form.elements.namedItem("title"),
+      company: form.elements.namedItem("company"),
+    }).catch((err) => {
+      statusEl.textContent = `Could not load job context: ${err.message}`;
+    });
+  }
 })();

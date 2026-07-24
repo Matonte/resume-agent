@@ -306,4 +306,15 @@
   });
 
   checkHealth();
+  if (window.ResumeAgentJobContext) {
+    ResumeAgentJobContext.prefillFromJobQuery({
+      description: document.getElementById('description'),
+      title: document.getElementById('title'),
+      company: document.getElementById('company'),
+      url: document.getElementById('listing_url'),
+    }).catch((err) => {
+      statusEl.hidden = false;
+      statusEl.textContent = `Could not load job context: ${err.message}`;
+    });
+  }
 })();

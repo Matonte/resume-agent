@@ -205,3 +205,13 @@ form.addEventListener("submit", async (evt) => {
 });
 
 loadMeetingAdvisorHint();
+if (window.ResumeAgentJobContext) {
+  ResumeAgentJobContext.prefillFromJobQuery({
+    description: document.getElementById("description"),
+    title: document.getElementById("title"),
+    company: document.getElementById("company"),
+    url: document.getElementById("url"),
+  }).catch((err) => {
+    setStatus(`Could not load job context: ${err.message}`, "error");
+  });
+}

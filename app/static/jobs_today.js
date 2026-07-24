@@ -117,14 +117,16 @@
         }
         <a href="${artifactHref(job.id, 'resume.docx')}">Resume.docx</a>
         <a href="${artifactHref(job.id, 'cover_letter.docx')}">Cover.docx</a>
-        <a href="${artifactHref(job.id, 'screening.json')}">Screening.json</a>
+        <a href="${artifactHref(job.id, 'screening.json')}">Application answers</a>
+        <a href="/?job_id=${encodeURIComponent(job.id)}">Re-tailor</a>
+        <a href="/meeting-advisor?job_id=${encodeURIComponent(job.id)}">Interview prep</a>
         <button class="primary"   data-action="approve"        ${status === 'approved' || status === 'submitted' ? 'disabled' : ''}>Approve</button>
         <button class="secondary" data-action="prepare-apply"  ${status !== 'approved' ? 'disabled' : ''}>Open &amp; prefill</button>
         <button class="secondary" data-action="mark-submitted" ${status === 'submitted' ? 'disabled' : ''}>I submitted it</button>
         <button class="danger"    data-action="skip"           ${status === 'skipped' || status === 'submitted' ? 'disabled' : ''}>Skip</button>
       </div>
       <div class="job-screening">
-        <strong>Screening drafts</strong>
+        <strong>Application answers</strong>
         <div>${screeningHtml}</div>
       </div>
       ${outreachBlock}
@@ -180,7 +182,7 @@
     submittedEl.textContent = jobs.filter((j) => j.status === 'submitted').length;
 
     if (jobs.length === 0) {
-      listEl.innerHTML = '<div class="empty-state">No jobs surfaced today.</div>';
+      listEl.innerHTML = '<div class="empty-state">No jobs yet today. <a href="/tailor">Build an apply package</a> or wait for the scheduled run — we tailor without inventing experience.</div>';
       return;
     }
     listEl.innerHTML = '';
