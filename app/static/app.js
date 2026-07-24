@@ -50,12 +50,12 @@
       const h = await res.json();
       const configured = !!h?.loaded_files?.llm_configured;
       if (configured) {
-        llmStatusEl.textContent = " — mirrors JD language while preserving truth-model facts.";
+        llmStatusEl.textContent = " — rewrites stay grounded in your verified experience.";
         useLlmEl.checked = true;
       } else {
         useLlmEl.checked = false;
         useLlmEl.disabled = true;
-        llmStatusEl.textContent = " — no OPENAI_API_KEY set in .env (deterministic only).";
+        llmStatusEl.textContent = " — optional matching unavailable (deterministic drafts only).";
       }
     } catch (err) {
       llmStatusEl.textContent = " — status unavailable.";
@@ -294,7 +294,7 @@
         const heading = summaryCard.querySelector("h2");
         const badge = document.createElement("span");
         badge.className = "llm-badge";
-        badge.textContent = "LLM polished";
+        badge.textContent = "Matched to job language";
         heading?.appendChild(badge);
       }
     }
@@ -324,11 +324,10 @@
       const ma = !!h?.loaded_files?.meeting_advisor_configured;
       if (ma) {
         meetingAdvisorEl.checked = true;
-        advisorStatusEl.textContent =
-          " — outreach / conversation prep (POSTs to MEETING_ADVISOR_URL).";
+        advisorStatusEl.textContent = " — outreach and interview conversation prep.";
       } else {
         advisorStatusEl.textContent =
-          " — MEETING_ADVISOR_URL not loaded; add to .env + restart, or toggle anyway to see errors.";
+          " — interview prep service not configured; you can still tailor the resume.";
       }
     } catch (err) {
       advisorStatusEl.textContent = " — status unavailable; toggle still works.";

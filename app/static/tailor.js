@@ -64,14 +64,13 @@ async function loadMeetingAdvisorHint() {
     const h = await res.json();
     const ok = !!h?.loaded_files?.meeting_advisor_configured;
     if (ok) {
-      hint.textContent = "(MEETING_ADVISOR_URL set)";
+      hint.textContent = "(ready)";
       cb.checked = true;
     } else {
-      hint.textContent =
-        "(MEETING_ADVISOR_URL missing in this server’s .env — set it, restart, or leave on to see the API note after run)";
+      hint.textContent = "(not configured — resume package still works)";
     }
   } catch (_) {
-    hint.textContent = "(status unavailable — checkbox still works)";
+    hint.textContent = "(status unavailable)";
   }
 }
 
@@ -138,8 +137,13 @@ function showResult(data) {
       wrap.hidden = false;
       bodyEl.innerHTML = note
         ? ""
-        : '<p class="muted">No meeting advisor output for this run. Turn on <strong>Meeting advisor</strong> above, set <code>MEETING_ADVISOR_URL</code> in <code>.env</code> (e.g. <code>http://127.0.0.1:5003</code>), restart Resume Agent, and ensure flask_sample <code>run_meeting_advisor.py</code> is listening.</p>';
+        : '<p class="muted">No interview talking points for this run. Turn on <strong>Interview talking points</strong> above when the prep service is available.</p>';
     }
+  }
+
+  const prepLink = document.getElementById("open-interview-prep");
+  if (prepLink && data.job_id) {
+    prepLink.href = `/meeting-advisor?job_id=${encodeURIComponent(data.job_id)}`;
   }
 }
 
@@ -159,7 +163,7 @@ form.addEventListener("submit", async (evt) => {
   submitBtn.disabled = true;
   submitBtn.textContent = "Tailoring…";
   setStatus(
-    "Working — classifying, drafting bullets, writing the cover letter, and answering screening questions. Usually 15-60s.",
+    "Working — matching the role, drafting resume bullets, cover letter, and application answers. Usually 15–60s.",
     "info",
   );
 
@@ -196,7 +200,7 @@ form.addEventListener("submit", async (evt) => {
     setStatus(`Network error: ${err}`, "error");
   } finally {
     submitBtn.disabled = false;
-    submitBtn.textContent = "Generate tailored package";
+    submitBtn.textContent = "Generate apply package";
   }
 });
 

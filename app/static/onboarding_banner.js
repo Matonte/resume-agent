@@ -9,8 +9,8 @@
       bar.setAttribute("role", "status");
       bar.style.marginBottom = "1rem";
       bar.innerHTML =
-        '<strong>Setup required.</strong> Finish <a href="/onboarding">account setup</a> ' +
-        "(résumé + job samples) before tailoring and queue actions work end-to-end.";
+        '<strong>Finish setup to unlock tailoring.</strong> Add a résumé and a few job samples on ' +
+        '<a href="/onboarding">setup</a> so we can tailor without inventing experience.';
       const shell = document.querySelector(".shell");
       (shell || document.body).insertBefore(bar, shell && shell.firstChild);
     })

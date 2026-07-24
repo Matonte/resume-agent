@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Resume Agent — Daily queue</title>
+  <title>Resume Agent — Today's jobs</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet" />
@@ -15,22 +15,30 @@
   <main class="shell">
     <header class="topbar">
       <div>
-        <h1>Today's queue <span class="wordmark-tag" aria-hidden="true">Daily run</span></h1>
+        <h1>Today's jobs <span class="wordmark-tag" aria-hidden="true">Apply queue</span></h1>
         <p class="subtitle">
-          Tailored packages from this morning's run. Approve to unlock semi-auto apply,
-          or skip to clear the queue.
+          Tailored packages ready for you. Approve to unlock apply helpers, prepare interview talking points, or skip to clear the list.
         </p>
       </div>
       <div class="links">
-        <a href="/batch-schedule">Schedule</a>
-        <a href="/job-search-geography">Geography</a>
+        <a href="/">Tailor</a>
+        <a href="/jobs/today" aria-current="page">Today's jobs</a>
+        <a href="/meeting-advisor">Interview prep</a>
         <a href="/account">Account</a>
-        <a href="/meeting-advisor">Advisor</a>
-        <a href="/tailor">Intake</a>
-        <a href="/">Review</a>
-        <a href="/docs" target="_blank">Docs</a>
+        <a href="/job-search-geography">Search area</a>
+        <a href="/batch-schedule">Schedule</a>
       </div>
     </header>
+
+    <nav class="hiring-flow" aria-label="How Resume Agent works">
+      <p class="product-promise">Tailor your resume to a specific job without inventing experience.</p>
+      <ol>
+        <li><span class="step-num">1</span> See what matters</li>
+        <li class="is-current"><span class="step-num">2</span> Tailor your resume</li>
+        <li class="is-current"><span class="step-num">3</span> Answer applications</li>
+        <li><span class="step-num">4</span> Interview talking points</li>
+      </ol>
+    </nav>
 
     <section id="summary" class="panel summary-panel">
       <div class="summary-cell">

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Resume Agent — Meeting advisor</title>
+  <title>Resume Agent — Interview prep</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet" />
@@ -16,23 +16,31 @@
   <main class="shell">
     <header class="topbar">
       <div>
-        <h1>Meeting advisor <span class="wordmark-tag" aria-hidden="true">Prep</span></h1>
+        <h1>Interview prep <span class="wordmark-tag" aria-hidden="true">Talking points</span></h1>
         <p class="subtitle">
-          Paste a job description and get structured conversation prep. Resume Agent
-          calls your advisor service at <code>MEETING_ADVISOR_URL</code>
-          (<code>POST …/api/v1/advise</code>) and renders tactics below. Optionally
-          focus one contact, or run advice for <strong>each name</strong> found in the
-          posting (OpenAI when “Use LLM” is on).
+          Paste a job description to get structured conversation prep for outreach or interviews.
+          Optionally focus one contact, or prepare talking points for each name found in the posting.
         </p>
       </div>
       <div class="links">
+        <a href="/">Tailor</a>
+        <a href="/jobs/today">Today's jobs</a>
+        <a href="/meeting-advisor" aria-current="page">Interview prep</a>
         <a href="/account">Account</a>
-        <a href="/jobs/today">Queue</a>
-        <a href="/tailor">Intake</a>
-        <a href="/">Review</a>
-        <a href="/docs" target="_blank">Docs</a>
+        <a href="/job-search-geography">Search area</a>
+        <a href="/batch-schedule">Schedule</a>
       </div>
     </header>
+
+    <nav class="hiring-flow" aria-label="How Resume Agent works">
+      <p class="product-promise">Tailor your resume to a specific job without inventing experience.</p>
+      <ol>
+        <li><span class="step-num">1</span> See what matters</li>
+        <li><span class="step-num">2</span> Tailor your resume</li>
+        <li><span class="step-num">3</span> Answer applications</li>
+        <li class="is-current"><span class="step-num">4</span> Interview talking points</li>
+      </ol>
+    </nav>
 
     <section class="panel tailor-panel">
       <form id="advisor-form" class="tailor-form" autocomplete="off">
@@ -69,13 +77,13 @@
         <div class="field-row field-row-controls">
           <label class="checkbox">
             <input id="extract-people" name="extract_people" type="checkbox" checked />
-            <span>Advise for <strong>each name</strong> found in the posting</span>
+            <span>Prep for <strong>each name</strong> found in the posting</span>
           </label>
           <label class="checkbox">
             <input id="use-llm" name="use_llm" type="checkbox" checked />
-            <span>Use LLM to extract names (needs OPENAI_API_KEY)</span>
+            <span>Extract names with AI (when configured)</span>
           </label>
-          <button id="submit-btn" type="submit" class="primary">Run advisor</button>
+          <button id="submit-btn" type="submit" class="primary">Prepare talking points</button>
         </div>
       </form>
 
@@ -84,7 +92,7 @@
 
     <section id="result-panel" class="panel result-panel advisor-results" hidden>
       <div class="advisor-results-head">
-        <h2>Result</h2>
+        <h2>Talking points</h2>
         <p class="hint" id="download-hint" hidden>
           <button type="button" class="secondary" id="download-json">Download JSON</button>
         </p>
@@ -92,7 +100,7 @@
       <p id="advisor-note" class="advisor-note" hidden></p>
       <div id="advisor-visual" class="advisor-visual"></div>
       <details class="advisor-raw panel inner-panel">
-        <summary>Raw JSON</summary>
+        <summary>Details (raw)</summary>
         <pre id="result-json" class="jd-preview advisor-json-pre"></pre>
       </details>
     </section>

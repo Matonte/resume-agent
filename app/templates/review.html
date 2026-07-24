@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Resume Agent — Review</title>
+  <title>Resume Agent — Tailor this job</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet" />
@@ -13,20 +13,30 @@
   <main class="shell">
     <header class="topbar">
       <div>
-        <h1>Single-job review <span class="wordmark-tag" aria-hidden="true">Local</span></h1>
-        <p class="subtitle">Paste a job description, classify it, draft a tailored resume and optional answer, and (when enabled) show meeting-advisor tactics in the resume panel.</p>
+        <h1>Tailor this job <span class="wordmark-tag" aria-hidden="true">Resume Agent</span></h1>
+        <p class="subtitle">
+          Paste a job description. We identify what matters for the role, tailor your resume from your verified experience, draft an application answer, and optionally prepare interview talking points.
+        </p>
       </div>
       <div class="links">
+        <a href="/" aria-current="page">Tailor</a>
+        <a href="/jobs/today">Today's jobs</a>
+        <a href="/meeting-advisor">Interview prep</a>
         <a href="/account">Account</a>
-        <a href="/meeting-advisor">Advisor</a>
-        <a href="/jobs/today">Queue</a>
-        <a href="/job-search-geography">Geography</a>
+        <a href="/job-search-geography">Search area</a>
         <a href="/batch-schedule">Schedule</a>
-        <a href="/tailor">Intake</a>
-        <a href="/api/health" target="_blank">Health</a>
-        <a href="/docs" target="_blank">Docs</a>
       </div>
     </header>
+
+    <nav class="hiring-flow" aria-label="How Resume Agent works">
+      <p class="product-promise">Tailor your resume to a specific job without inventing experience.</p>
+      <ol>
+        <li class="is-current"><span class="step-num">1</span> See what matters</li>
+        <li class="is-current"><span class="step-num">2</span> Tailor your resume</li>
+        <li><span class="step-num">3</span> Answer applications</li>
+        <li><span class="step-num">4</span> Interview talking points</li>
+      </ol>
+    </nav>
 
     <section class="panel">
       <form id="draft-form" class="form-grid">
@@ -43,14 +53,14 @@
 
         <label>
           <span>Job description</span>
-          <textarea name="description" rows="10" required placeholder="Paste the JD here..."></textarea>
+          <textarea name="description" rows="10" required placeholder="Paste the job description here…"></textarea>
         </label>
 
         <div class="row two">
           <label>
-            <span>Archetype override (optional)</span>
+            <span>Resume focus (optional)</span>
             <select name="archetype_override" id="archetype-select">
-              <option value="">Auto (from classifier)</option>
+              <option value="">Auto — pick the best fit</option>
             </select>
           </label>
           <label>
@@ -62,30 +72,37 @@
         <label class="checkbox-row" id="llm-row">
           <input type="checkbox" name="use_llm" id="use-llm" />
           <span>
-            <strong>Polish with LLM</strong>
-            <span class="muted" id="llm-status"> — checking model availability…</span>
+            <strong>Match job language</strong>
+            <span class="muted" id="llm-status"> — checking availability…</span>
           </span>
         </label>
 
         <label class="checkbox-row" id="advisor-row">
           <input type="checkbox" name="meeting_advisor" id="meeting-advisor" />
           <span>
-            <strong>Meeting advisor</strong>
+            <strong>Interview talking points</strong>
             <span class="muted" id="advisor-status"> — checking…</span>
           </span>
         </label>
         <div class="row two">
           <label>
-            <span>Advisor subject (optional)</span>
+            <span>Focus person (optional)</span>
             <input name="advisor_subject_name" type="text" placeholder="Contact name, or leave blank for generic hiring-team prep" />
           </label>
         </div>
 
+        <details class="advanced-options">
+          <summary>Advanced</summary>
+          <p class="muted">
+            Resume focus options map to internal archetype templates. Matching job language uses your configured model when available.
+          </p>
+        </details>
+
         <div class="actions">
-          <button type="submit" id="go">Generate draft</button>
+          <button type="submit" id="go">Tailor resume</button>
           <button type="button" id="download-btn" disabled>Download tailored .docx</button>
           <button type="button" id="download-advisor-btn" disabled class="secondary">
-            Download meeting_advice.json
+            Download interview prep JSON
           </button>
           <span id="status" class="status"></span>
         </div>
@@ -94,7 +111,7 @@
 
     <section class="panel results hidden" id="results">
       <article class="fit-card">
-        <h2>Fit score</h2>
+        <h2>Role fit</h2>
         <div class="fit-row">
           <div class="fit-number" id="fit-score">--</div>
           <div class="fit-band" id="fit-band"></div>
@@ -105,7 +122,7 @@
 
       <div class="grid">
         <article>
-          <h2>Classification</h2>
+          <h2>What matters for this role</h2>
           <div class="pill" id="archetype-pill"></div>
           <div class="meter"><div class="meter-fill" id="score-fill"></div></div>
           <p class="muted" id="score-text"></p>
@@ -122,7 +139,7 @@
           <h3>Notes</h3>
           <ul id="notes" class="muted"></ul>
           <div id="resume-meeting-advisor" class="resume-meeting-advisor hidden">
-            <h3>Meeting advisor</h3>
+            <h3>Interview talking points</h3>
             <p id="resume-meeting-advisor-note" class="muted"></p>
             <div id="resume-meeting-advice-body" class="meeting-advice-body"></div>
           </div>
@@ -137,8 +154,7 @@
     </section>
 
     <footer class="footer muted">
-      Guardrails: never invents metrics, titles, tools, dates, or scope. Every claim must trace back to
-      <code>data/master_truth_model.json</code>.
+      We never invent metrics, titles, tools, dates, or scope — every claim stays grounded in your verified experience.
     </footer>
   </main>
 
