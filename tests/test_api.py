@@ -210,7 +210,7 @@ def test_meeting_advisor_page_loads(monkeypatch):
     monkeypatch.setattr(app_settings, "meeting_advisor_ui_url", "")
     res = client.get("/meeting-advisor")
     assert res.status_code == 200
-    assert "Meeting advisor" in res.text
+    assert "Interview prep" in res.text
 
 
 def test_meeting_advisor_aliases_redirect_to_embedded_page(monkeypatch):
@@ -231,7 +231,7 @@ def test_meeting_advisor_serves_embedded_when_api_configured_without_ui_url(
     monkeypatch.setattr(app_settings, "meeting_advisor_ui_url", "")
     res = client.get("/meeting-advisor", follow_redirects=False)
     assert res.status_code == 200
-    assert "Meeting advisor" in res.text
+    assert "Interview prep" in res.text
 
 
 def test_meeting_advisor_standalone_honors_meeting_advisor_ui_url(monkeypatch):
@@ -246,7 +246,7 @@ def test_meeting_advisor_nested_page_loads(monkeypatch):
     monkeypatch.setattr(app_settings, "meeting_advisor_ui_url", "")
     res = client.get("/meeting-advisor/page")
     assert res.status_code == 200
-    assert "Meeting advisor" in res.text
+    assert "Interview prep" in res.text
 
 
 def test_api_meeting_advisor_trailing_slash_redirects_embedded(monkeypatch):
@@ -272,7 +272,7 @@ def test_meeting_advisor_page_under_api_loads(monkeypatch):
     monkeypatch.setattr(app_settings, "meeting_advisor_ui_url", "")
     res = client.get("/api/meeting-advisor/page")
     assert res.status_code == 200
-    assert "Meeting advisor" in res.text
+    assert "Interview prep" in res.text
 
 
 def test_api_meeting_advisor_get_help(monkeypatch):

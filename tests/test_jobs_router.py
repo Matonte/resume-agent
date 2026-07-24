@@ -175,4 +175,4 @@ def test_artifact_outreach_contacts_json(client: TestClient, tmp_path: Path) -> 
 def test_jobs_today_page_serves(client: TestClient) -> None:
     res = client.get("/jobs/today")
     assert res.status_code == 200
-    assert "Today's queue" in res.text
+    assert "Today's jobs" in res.text
