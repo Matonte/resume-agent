@@ -41,6 +41,15 @@ class LoginBody(BaseModel):
     password: str
 
 
+class ForgotPasswordBody(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordBody(BaseModel):
+    token: str = Field(min_length=20, max_length=200)
+    password: str = Field(min_length=8, max_length=128)
+
+
 class ContributionsOptInBody(BaseModel):
     enabled: bool
 
@@ -113,6 +122,54 @@ def login(request: Request, body: LoginBody) -> Any:
         fresh = get_user_by_id(conn, u.id)
     assert fresh is not None
     return {"ok": True, "user": _public_user(fresh, authenticated=True)}
+
+
+@router.post("/forgot-password")
+def forgot_password(body: ForgotPasswordBody) -> Any:
+    """Start a password reset. Always returns the same message (no email oracle)."""
+    from app.auth.password_reset import request_reset_for_email
+
+    sent = False
+    raw_token: Optional[str] = None
+    with get_conn() as conn:
+        sent, raw_token = request_reset_for_email(conn, str(body.email))
+    payload: dict[str, Any] = {
+        "ok": True,
+        "message": (
+            "If that email is registered and mail is configured, "
+            "a reset link is on its way. Check your inbox."
+        ),
+        "email_configured": settings.email_configured,
+        "email_sent": bool(sent),
+    }
+    if settings.expose_password_reset_token and raw_token:
+        payload["dev_reset_token"] = raw_token
+    return payload
+
+
+@router.post("/reset-password")
+def reset_password(request: Request, body: ResetPasswordBody) -> Any:
+    from app.auth.password_reset import consume_password_reset_token
+
+    with get_conn() as conn:
+        uid = consume_password_reset_token(conn, body.token)
+        if not uid:
+            raise HTTPException(
+                status_code=400,
+                detail="This reset link is invalid or has expired. Request a new one.",
+            )
+        conn.execute(
+            "UPDATE users SET password_hash = ? WHERE id = ?",
+            (hash_password(body.password), uid),
+        )
+        conn.commit()
+        u = get_user_by_id(conn, uid)
+    if not u:
+        raise HTTPException(status_code=404, detail="user not found")
+    request.session["user_id"] = u.id
+    if u.active_profile_id:
+        request.session["profile_id"] = u.active_profile_id
+    return {"ok": True, "user": _public_user(u, authenticated=True)}
 
 
 @router.post("/logout")

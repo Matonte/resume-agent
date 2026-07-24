@@ -173,8 +173,43 @@ def send_digest(
     return True
 
 
+def send_simple_email(
+    to_address: str,
+    subject: str,
+    *,
+    text_body: str,
+    html_body: Optional[str] = None,
+    smtp_factory=None,
+) -> bool:
+    """Send a one-off email (password reset, etc.). Returns True on success."""
+    if not settings.email_configured:
+        logger.warning(
+            "Email not configured (GMAIL_ADDRESS/GMAIL_APP_PASSWORD); cannot send to %s",
+            to_address,
+        )
+        return False
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = settings.gmail_address
+    msg["To"] = to_address
+    msg.set_content(text_body)
+    if html_body:
+        msg.add_alternative(html_body, subtype="html")
+    try:
+        open_smtp = smtp_factory or (lambda: smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=20))
+        with open_smtp() as smtp:
+            smtp.login(settings.gmail_address, settings.gmail_app_password)
+            smtp.send_message(msg)
+    except Exception:  # noqa: BLE001
+        logger.exception("Failed to send email to %s", to_address)
+        return False
+    logger.info("Sent email to %s subject=%s", to_address, subject)
+    return True
+
+
 __all__ = [
     "send_digest",
+    "send_simple_email",
     "build_digest_message",
     "render_digest_html",
     "render_digest_text",

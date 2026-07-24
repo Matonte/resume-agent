@@ -194,6 +194,113 @@
     await refreshMe();
   });
 
+  const forgotForm = document.getElementById("forgot-form");
+  const forgotLink = document.getElementById("forgot-link");
+  const forgotCancel = document.getElementById("forgot-cancel");
+  if (forgotLink && forgotForm) {
+    forgotLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      forgotForm.hidden = false;
+      const loginEmail = document.querySelector('#login-form input[name="email"]');
+      const forgotEmail = forgotForm.querySelector('input[name="email"]');
+      if (loginEmail && forgotEmail && loginEmail.value) {
+        forgotEmail.value = loginEmail.value;
+      }
+    });
+  }
+  if (forgotCancel && forgotForm) {
+    forgotCancel.addEventListener("click", () => {
+      forgotForm.hidden = true;
+    });
+  }
+  if (forgotForm) {
+    forgotForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      setAuthStatus("");
+      const fd = new FormData(e.target);
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: fd.get("email") }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setAuthStatus(data.detail || String(res.status), "error");
+        return;
+      }
+      let msg = data.message || "Check your email for a reset link.";
+      if (data.email_configured === false) {
+        msg +=
+          " Mail is not configured on this server (set GMAIL_ADDRESS / GMAIL_APP_PASSWORD), so no email was sent.";
+      } else if (data.email_sent === false) {
+        msg += " If you don't see mail soon, ask an admin to reset your password.";
+      }
+      if (data.dev_reset_token) {
+        msg += " Dev token: open /account?reset=" + data.dev_reset_token;
+        history.replaceState(null, "", "/account?reset=" + encodeURIComponent(data.dev_reset_token));
+        showResetPanel(data.dev_reset_token);
+      }
+      setAuthStatus(msg, data.email_sent ? "success" : "warn");
+    });
+  }
+
+  const resetPanel = document.getElementById("reset-panel");
+  const resetForm = document.getElementById("reset-form");
+  const resetStatus = document.getElementById("reset-status");
+  const resetTokenInput = document.getElementById("reset-token");
+
+  function setResetStatus(text, kind) {
+    if (!resetStatus) return;
+    if (!text) {
+      resetStatus.hidden = true;
+      return;
+    }
+    resetStatus.hidden = false;
+    resetStatus.className = "status " + (kind || "info");
+    resetStatus.textContent = text;
+  }
+
+  function showResetPanel(token) {
+    if (!resetPanel || !resetTokenInput) return;
+    resetPanel.hidden = false;
+    resetTokenInput.value = token || "";
+    resetPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const resetTok = params.get("reset");
+    if (resetTok) showResetPanel(resetTok);
+  } catch (_) {}
+
+  if (resetForm) {
+    resetForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      setResetStatus("");
+      const fd = new FormData(e.target);
+      const password = String(fd.get("password") || "");
+      const password2 = String(fd.get("password2") || "");
+      const token = String(fd.get("token") || "");
+      if (password !== password2) {
+        setResetStatus("Passwords do not match.", "error");
+        return;
+      }
+      const res = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: token, password: password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setResetStatus(data.detail || String(res.status), "error");
+        return;
+      }
+      setResetStatus("Password updated — you are signed in.", "success");
+      history.replaceState(null, "", "/account");
+      await refreshMe();
+    });
+  }
+
   logoutBtn.addEventListener("click", async () => {
     await fetch("/api/auth/logout", { method: "POST" });
     setAuthStatus("Logged out.", "info");

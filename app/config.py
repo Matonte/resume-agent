@@ -55,6 +55,10 @@ class Settings(BaseModel):
 
     # Session cookie signing (set in production). Default is dev-only.
     session_secret: str = _strip(os.getenv("SESSION_SECRET")) or "dev-session-secret-change-me"
+    #: When True, forgot-password API may include ``dev_reset_token`` (local/tests only).
+    expose_password_reset_token: bool = _strip(
+        os.getenv("EXPOSE_PASSWORD_RESET_TOKEN")
+    ).lower() in ("1", "true", "yes")
 
     # Anonymous / CLI default workspace user (built-in repo `data/`).
     default_user_id: int = int(_strip(os.getenv("DEFAULT_USER_ID")) or "1")

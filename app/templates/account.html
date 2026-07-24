@@ -54,9 +54,29 @@
             <label><span>Password</span><input name="password" type="password" required autocomplete="current-password" /></label>
             <button type="submit">Log in</button>
           </form>
+          <p class="muted" style="margin-top:0.75rem;">
+            <a href="#forgot" id="forgot-link">Forgot your password?</a>
+          </p>
+          <form id="forgot-form" class="form-grid" hidden style="margin-top:0.75rem;">
+            <label><span>Account email</span><input name="email" type="email" required autocomplete="email" /></label>
+            <button type="submit">Email reset link</button>
+            <button type="button" id="forgot-cancel" class="secondary">Cancel</button>
+          </form>
         </div>
       </div>
       <p id="auth-status" class="status" hidden></p>
+    </section>
+
+    <section class="panel" id="reset-panel" hidden>
+      <h2 class="panel-heading">Choose a new password</h2>
+      <p class="muted">Use the link from your email, or paste a reset token below.</p>
+      <form id="reset-form" class="form-grid">
+        <input type="hidden" name="token" id="reset-token" />
+        <label><span>New password (8+ chars)</span><input name="password" type="password" required minlength="8" autocomplete="new-password" /></label>
+        <label><span>Confirm password</span><input name="password2" type="password" required minlength="8" autocomplete="new-password" /></label>
+        <button type="submit">Update password</button>
+      </form>
+      <p id="reset-status" class="status" hidden></p>
     </section>
 
     <section class="panel" id="profiles-panel" hidden>
