@@ -14,8 +14,8 @@ from app.storage.db import DailyRun, get_conn, load_job
 
 
 @pytest.fixture
-def client(isolated_outputs) -> TestClient:
-    return TestClient(app)
+def client(authed_client) -> TestClient:
+    return authed_client
 
 
 # Enough text to pass the 100-char minimum and look like a real JD.

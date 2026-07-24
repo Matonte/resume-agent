@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import pytest
-
 from fastapi.testclient import TestClient
 
 from app.config import settings
-from app.main import app
 from app.services.person_profile_bundle import (
     PersonProfileBundleParams,
     ProfileSnippet,
@@ -15,7 +13,14 @@ from app.services.person_profile_bundle import (
     build_practical_readout,
 )
 
-client = TestClient(app)
+client: TestClient
+
+
+@pytest.fixture(autouse=True)
+def _bind_authed_client(authed_client: TestClient):
+    global client
+    client = authed_client
+    yield
 
 
 def test_bundle_rejects_short_name() -> None:

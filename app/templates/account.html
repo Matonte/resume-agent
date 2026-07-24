@@ -37,8 +37,11 @@
     </section>
 
     <section class="panel" id="auth-forms">
+      <p class="accuracy-callout" id="login-required-note" role="note">
+        <strong>Sign in required.</strong> Resume Agent unlocks after you log in — tailor, today's jobs, and interview prep stay private to your account.
+      </p>
       <div class="auth-grid">
-        <div>
+        <div id="register-wrap">
           <h2 class="panel-heading">Register</h2>
           <form id="register-form" class="form-grid">
             <label><span>Email</span><input name="email" type="email" required autocomplete="email" /></label>
@@ -47,7 +50,7 @@
             <button type="submit">Create account</button>
           </form>
         </div>
-        <div>
+        <div id="login-wrap">
           <h2 class="panel-heading">Log in</h2>
           <form id="login-form" class="form-grid">
             <label><span>Email</span><input name="email" type="email" required autocomplete="username" /></label>

@@ -11,6 +11,7 @@ from app.daily_run_scheduler import (
     start_embedded_daily_run_scheduler,
     stop_embedded_daily_run_scheduler,
 )
+from app.middleware.login_gate import LoginGateMiddleware
 from app.middleware.onboarding_gate import OnboardingGateMiddleware
 from app.middleware.profile_bind import ProfileDataMiddleware
 from app.routers.api import router
@@ -52,8 +53,9 @@ app = FastAPI(
 
 
 # Last-added middleware runs first on the request. Session must run before
-# ProfileDataMiddleware reads request.session.
+# ProfileDataMiddleware / LoginGate read request.session.
 app.add_middleware(OnboardingGateMiddleware)
+app.add_middleware(LoginGateMiddleware)
 app.add_middleware(ProfileDataMiddleware)
 app.add_middleware(
     SessionMiddleware,

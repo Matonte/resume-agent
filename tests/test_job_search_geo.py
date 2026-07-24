@@ -63,7 +63,9 @@ def test_patch_preserves_unrelated_keys(tmp_path: Path) -> None:
     assert loaded.daily_cap == 7
 
 
-def test_api_get_put(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_api_get_put(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, authed_client: TestClient
+) -> None:
     p = tmp_path / "preferences.yaml"
     p.write_text(
         textwrap.dedent(
@@ -80,7 +82,7 @@ def test_api_get_put(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         encoding="utf-8",
     )
     monkeypatch.setattr(pref_mod, "DEFAULT_PATH", p)
-    client = TestClient(app)
+    client = authed_client
     r = client.get("/api/job-search-geography/")
     assert r.status_code == 200
     assert r.json()["locations"] == ["X"]
@@ -101,11 +103,13 @@ def test_api_get_put(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     assert body["linkedin_geo_id"] == "103644278"
 
 
-def test_put_rejects_non_numeric_geo(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_put_rejects_non_numeric_geo(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, authed_client: TestClient
+) -> None:
     p = tmp_path / "preferences.yaml"
     p.write_text("targets: { locations: [], remote_ok: true }\n", encoding="utf-8")
     monkeypatch.setattr(pref_mod, "DEFAULT_PATH", p)
-    client = TestClient(app)
+    client = authed_client
     r = client.put(
         "/api/job-search-geography/",
         json={"locations": [], "remote_ok": True, "linkedin_geo_id": "US"},

@@ -23,8 +23,8 @@ JD_SHORT = (
 
 
 @pytest.fixture
-def client(isolated_outputs) -> TestClient:
-    return TestClient(app)
+def client(authed_client) -> TestClient:
+    return authed_client
 
 
 def test_list_archetype_templates(client: TestClient) -> None:
@@ -73,8 +73,14 @@ def test_upload_rejects_registered_user(client: TestClient) -> None:
 
 
 @pytest.mark.skipif(not TEMPLATE_B.is_file(), reason="template DOCX not present")
-def test_upload_stores_and_removes_disk_copy(client: TestClient, tmp_path: Path) -> None:
-    """Workspace owner (default session uid 1) can upload; matching disk file is removed."""
+def test_upload_stores_and_removes_disk_copy(
+    isolated_outputs, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Default workspace (anonymous uid 1) can upload when login gate is off."""
+    from app.config import settings as app_settings
+
+    monkeypatch.setattr(app_settings, "require_login", False)
+    client = TestClient(app)
     dest_dir = tmp_path / "source_resumes"
     dest_dir.mkdir()
     disk_copy = dest_dir / "MM_Resume_4_9_26_B (1).docx"

@@ -9,7 +9,6 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
 from app.storage.db import (
     STATUS_APPROVED,
     STATUS_NEW,
@@ -24,11 +23,23 @@ from app.storage.db import (
 
 
 @pytest.fixture
-def client(isolated_outputs) -> TestClient:
-    return TestClient(app)
+def client(authed_client) -> TestClient:
+    return authed_client
 
 
-def _seed_job(run_id: str, *, job_id: str, fit: float, status: str = STATUS_NEW) -> JobRecord:
+def _session_uid(client: TestClient) -> int:
+    return int(client.get("/api/auth/me").json()["id"])
+
+
+def _seed_job(
+    run_id: str,
+    *,
+    job_id: str,
+    fit: float,
+    status: str = STATUS_NEW,
+    user_id: int = 1,
+    artifact_dir: str | None = None,
+) -> JobRecord:
     job = JobRecord(
         id=job_id,
         source="fake",
@@ -41,18 +52,21 @@ def _seed_job(run_id: str, *, job_id: str, fit: float, status: str = STATUS_NEW)
         fit_score=fit,
         status=status,
         daily_run_id=run_id,
+        user_id=user_id,
+        artifact_dir=artifact_dir,
     )
     with get_conn() as conn:
-        run = DailyRun(id=run_id, ran_at=datetime.utcnow(), user_id=1)
+        run = DailyRun(id=run_id, ran_at=datetime.utcnow(), user_id=user_id)
         insert_daily_run(conn, run)
         upsert_job(conn, job)
     return job
 
 
 def test_list_today_returns_seeded_jobs(client: TestClient) -> None:
-    run_id = DailyRun.make_id()
-    _seed_job(run_id, job_id="jobA", fit=8.1)
-    _seed_job(run_id, job_id="jobB", fit=6.0)
+    uid = _session_uid(client)
+    run_id = DailyRun.make_id(user_id=uid)
+    _seed_job(run_id, job_id="jobA", fit=8.1, user_id=uid)
+    _seed_job(run_id, job_id="jobB", fit=6.0, user_id=uid)
 
     res = client.get("/api/jobs/today")
     assert res.status_code == 200
@@ -63,8 +77,9 @@ def test_list_today_returns_seeded_jobs(client: TestClient) -> None:
 
 
 def test_get_job_returns_screening_and_jd(client: TestClient) -> None:
-    run_id = DailyRun.make_id()
-    _seed_job(run_id, job_id="jobA", fit=8.1)
+    uid = _session_uid(client)
+    run_id = DailyRun.make_id(user_id=uid)
+    _seed_job(run_id, job_id="jobA", fit=8.1, user_id=uid)
     res = client.get("/api/jobs/jobA")
     assert res.status_code == 200
     assert res.json()["id"] == "jobA"
@@ -72,8 +87,9 @@ def test_get_job_returns_screening_and_jd(client: TestClient) -> None:
 
 
 def test_approve_skip_mark_submitted_lifecycle(client: TestClient) -> None:
-    run_id = DailyRun.make_id()
-    _seed_job(run_id, job_id="jobA", fit=8.1)
+    uid = _session_uid(client)
+    run_id = DailyRun.make_id(user_id=uid)
+    _seed_job(run_id, job_id="jobA", fit=8.1, user_id=uid)
 
     res = client.post("/api/jobs/jobA/approve")
     assert res.status_code == 200 and res.json()["status"] == STATUS_APPROVED
@@ -94,14 +110,16 @@ def test_unknown_job_returns_404(client: TestClient) -> None:
 
 
 def test_artifact_refuses_unknown_file(client: TestClient) -> None:
-    run_id = DailyRun.make_id()
-    _seed_job(run_id, job_id="jobA", fit=8.1)
+    uid = _session_uid(client)
+    run_id = DailyRun.make_id(user_id=uid)
+    _seed_job(run_id, job_id="jobA", fit=8.1, user_id=uid)
     res = client.get("/api/jobs/jobA/artifact?file=passwd")
     assert res.status_code == 400
 
 
 def test_get_job_includes_outreach_contacts(client: TestClient, tmp_path: Path) -> None:
-    run_id = DailyRun.make_id()
+    uid = _session_uid(client)
+    run_id = DailyRun.make_id(user_id=uid)
     art = tmp_path / "artifacts"
     art.mkdir()
     (art / "outreach_contacts.json").write_text(
@@ -120,24 +138,7 @@ def test_get_job_includes_outreach_contacts(client: TestClient, tmp_path: Path) 
         ),
         encoding="utf-8",
     )
-    job = JobRecord(
-        id="jobA",
-        source="fake",
-        url="https://example.com/jobs/jobA",
-        title="Senior Backend Engineer",
-        company="Acme",
-        location="New York, NY",
-        jd_full="x" * 400,
-        archetype_id="B_fintech_transaction_systems",
-        fit_score=8.1,
-        status=STATUS_NEW,
-        daily_run_id=run_id,
-        artifact_dir=str(art),
-    )
-    with get_conn() as conn:
-        run = DailyRun(id=run_id, ran_at=datetime.utcnow(), user_id=1)
-        insert_daily_run(conn, run)
-        upsert_job(conn, job)
+    _seed_job(run_id, job_id="jobA", fit=8.1, user_id=uid, artifact_dir=str(art))
     res = client.get("/api/jobs/jobA")
     assert res.status_code == 200
     body = res.json()
@@ -146,28 +147,12 @@ def test_get_job_includes_outreach_contacts(client: TestClient, tmp_path: Path) 
 
 
 def test_artifact_outreach_contacts_json(client: TestClient, tmp_path: Path) -> None:
-    run_id = DailyRun.make_id()
+    uid = _session_uid(client)
+    run_id = DailyRun.make_id(user_id=uid)
     art = tmp_path / "a2"
     art.mkdir()
     (art / "outreach_contacts.json").write_text("[]", encoding="utf-8")
-    job = JobRecord(
-        id="jobBout",
-        source="fake",
-        url="https://example.com/jobs/jobBout",
-        title="Engineer",
-        company="Beta",
-        location="NY",
-        jd_full="x" * 400,
-        archetype_id="A_general_ai_platform",
-        fit_score=7.0,
-        status=STATUS_NEW,
-        daily_run_id=run_id,
-        artifact_dir=str(art),
-    )
-    with get_conn() as conn:
-        run = DailyRun(id=run_id, ran_at=datetime.utcnow(), user_id=1)
-        insert_daily_run(conn, run)
-        upsert_job(conn, job)
+    _seed_job(run_id, job_id="jobBout", fit=7.0, user_id=uid, artifact_dir=str(art))
     res = client.get("/api/jobs/jobBout/artifact?file=outreach_contacts.json")
     assert res.status_code == 200
 

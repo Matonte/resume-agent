@@ -53,10 +53,10 @@ def test_client_host_is_loopback() -> None:
     assert not bs.client_host_is_loopback(None)
 
 
-def test_api_get_put(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_api_get_put(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, authed_client: TestClient) -> None:
     path = tmp_path / "batch_schedule.yaml"
     monkeypatch.setattr(bs, "DEFAULT_PATH", path)
-    client = TestClient(app)
+    client = authed_client
     r = client.get("/api/batch-schedule/")
     assert r.status_code == 200
     body = r.json()
@@ -83,15 +83,19 @@ def test_api_get_put(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     __import__("sys").platform != "win32",
     reason="apply-windows-task is Windows-only",
 )
-def test_apply_windows_task_requires_loopback(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_apply_windows_task_requires_loopback(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, authed_client: TestClient
+) -> None:
     monkeypatch.setattr(bs, "DEFAULT_PATH", tmp_path / "batch_schedule.yaml")
     bs.save_batch_schedule(bs.BatchScheduleConfig(), tmp_path / "batch_schedule.yaml")
-    client = TestClient(app)
+    client = authed_client
     r = client.post("/api/batch-schedule/apply-windows-task")
     assert r.status_code == 400
 
 
-def test_apply_windows_task_mock_subprocess(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_apply_windows_task_mock_subprocess(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, authed_client: TestClient
+) -> None:
     path = tmp_path / "batch_schedule.yaml"
     monkeypatch.setattr(bs, "DEFAULT_PATH", path)
     bs.save_batch_schedule(bs.BatchScheduleConfig(), path)
@@ -106,7 +110,7 @@ def test_apply_windows_task_mock_subprocess(monkeypatch: pytest.MonkeyPatch, tmp
         patch("app.routers.batch_schedule.client_host_is_loopback", return_value=True),
         patch("app.routers.batch_schedule.subprocess.run", return_value=proc) as run,
     ):
-        client = TestClient(app)
+        client = authed_client
         r = client.post(
             "/api/batch-schedule/apply-windows-task",
         )

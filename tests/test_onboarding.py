@@ -89,10 +89,20 @@ def test_onboarding_finish_without_llm(client: TestClient, monkeypatch) -> None:
     assert r.status_code == 200
 
 
-def test_default_workspace_not_gated(client: TestClient) -> None:
+def test_default_workspace_requires_login(client: TestClient) -> None:
     client.post("/api/auth/logout")
     r = client.get("/tailor", follow_redirects=False)
-    assert r.status_code == 200
+    assert r.status_code == 307
+    assert r.headers.get("location") == "/account"
+
+
+def test_anonymous_api_rejected(client: TestClient) -> None:
+    client.post("/api/auth/logout")
+    r = client.post(
+        "/api/full-draft",
+        json={"description": "Distributed backend role, low latency and concurrency."},
+    )
+    assert r.status_code == 401
 
 
 def test_tailoring_endpoints_403_before_onboarding_complete(client: TestClient) -> None:

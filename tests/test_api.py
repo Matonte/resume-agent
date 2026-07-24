@@ -1,11 +1,20 @@
 """End-to-end API tests via FastAPI's TestClient."""
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.config import settings as app_settings
 from app.main import app
 
-client = TestClient(app)
+# Bound per-test by ``_bind_authed_client`` (login required for product APIs).
+client: TestClient
+
+
+@pytest.fixture(autouse=True)
+def _bind_authed_client(authed_client: TestClient):
+    global client
+    client = authed_client
+    yield
 
 
 def test_health():
@@ -27,7 +36,7 @@ def test_candidate_pack():
     assert data["truth_model_roles"] > 0
     assert "candidate_data_dir" in data
     assert "rag_profile_id" in data
-    assert data["authenticated"] is False
+    assert data["authenticated"] is True
 
 
 def test_classify():

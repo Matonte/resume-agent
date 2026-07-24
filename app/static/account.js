@@ -45,18 +45,40 @@
     const u = await res.json();
     const signedIn = !!u.authenticated;
     const builtin = !!u.use_builtin_profile || u.id === 1;
+    const authForms = document.getElementById("auth-forms");
+    const registerWrap = document.getElementById("register-wrap");
+    const loginWrap = document.getElementById("login-wrap");
+    const loginNote = document.getElementById("login-required-note");
+    const appLinks = document.querySelectorAll(".links a:not([href='/account'])");
+
     if (!signedIn) {
-      meLine.textContent = builtin
-        ? "Default workspace (repository data/). Log in for your own isolated resume packs."
-        : `Using account data for ${u.email} anonymously. Log in to manage résumés and profile.`;
-    } else {
-      meLine.textContent = `${u.display_name || u.email} · ${u.email} · active profile #${u.active_profile_id || "—"}`;
+      meLine.textContent = "Not signed in. Log in or create an account to use Resume Agent.";
+      if (authForms) authForms.hidden = false;
+      if (registerWrap) registerWrap.hidden = false;
+      if (loginWrap) loginWrap.hidden = false;
+      if (loginNote) loginNote.hidden = false;
+      appLinks.forEach((a) => {
+        a.hidden = true;
+      });
+      logoutBtn.hidden = true;
+      profilesPanel.hidden = true;
+      resumeUploadPanel.hidden = true;
+      return;
     }
-    logoutBtn.hidden = !signedIn;
+
+    meLine.textContent = `${u.display_name || u.email} · ${u.email} · active profile #${u.active_profile_id || "—"}`;
+    if (authForms) authForms.hidden = true;
+    if (registerWrap) registerWrap.hidden = true;
+    if (loginWrap) loginWrap.hidden = true;
+    if (loginNote) loginNote.hidden = true;
+    appLinks.forEach((a) => {
+      a.hidden = false;
+    });
+    logoutBtn.hidden = false;
     profilesPanel.hidden = false;
     activeProfileId = u.active_profile_id || null;
     await loadProfiles(u.active_profile_id);
-    await refreshResumePanel(!signedIn || builtin);
+    await refreshResumePanel(builtin);
   }
 
   async function refreshResumePanel(isDefault) {

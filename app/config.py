@@ -55,6 +55,14 @@ class Settings(BaseModel):
 
     # Session cookie signing (set in production). Default is dev-only.
     session_secret: str = _strip(os.getenv("SESSION_SECRET")) or "dev-session-secret-change-me"
+    #: When True (default), product pages/APIs require a signed-in session.
+    #: Set REQUIRE_LOGIN=0 only for emergency/local anonymous debugging.
+    require_login: bool = _strip(os.getenv("REQUIRE_LOGIN") or "1").lower() not in (
+        "0",
+        "false",
+        "no",
+        "off",
+    )
     #: When True, forgot-password API may include ``dev_reset_token`` (local/tests only).
     expose_password_reset_token: bool = _strip(
         os.getenv("EXPOSE_PASSWORD_RESET_TOKEN")
