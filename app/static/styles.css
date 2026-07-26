@@ -1,18 +1,5 @@
-/* Resume Agent — "The Abyss" depth + Stranger Things phosphor CRT
- * VT323 terminal body, Orbitron HUD titles, scanlines + vignette. */
-
-@keyframes crt-flicker {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  94% {
-    opacity: 0.98;
-  }
-  96% {
-    opacity: 1;
-  }
-}
+/* Resume Agent — abyss depth + phosphor HUD (legibility-first).
+ * Rajdhani for body UI, Orbitron for titles; light scanlines only. */
 
 :root {
   /* Deep water / lab black-green */
@@ -22,10 +9,10 @@
   --panel: #061210;
   --panel-raised: #0a1a16;
   --panel-hover: #0d221c;
-  /* Phosphor green-cyan (ST terminal / deep-sea readout) */
-  --fg: #a8ffd9;
-  --fg-muted: #62c9a8;
-  --fg-dim: #3d8f75;
+  /* Phosphor green-cyan — contrast tuned for WCAG AA on dark panels */
+  --fg: #b8ffe4;
+  --fg-muted: #7dd4b5;
+  --fg-dim: #6eb89a;
   --border: #145a4a;
   --border-strong: #1e8a72;
   --accent: #4fffc4;
@@ -38,9 +25,8 @@
   --ok: #4fffc4;
   --chamfer: 12px;
   --font-display: "Orbitron", "Rajdhani", system-ui, sans-serif;
-  /* Chunky CRT terminal — Stranger Things / 80s lab monochrome */
-  --font-sans: "VT323", "Rajdhani", monospace;
-  --font-mono: "Share Tech Mono", "VT323", ui-monospace, monospace;
+  --font-sans: "Rajdhani", system-ui, sans-serif;
+  --font-mono: "Share Tech Mono", ui-monospace, monospace;
   --radius-inner: 2px;
   --transition: 0.14s ease;
 }
@@ -58,19 +44,14 @@ body {
   color: var(--fg);
   font-family: var(--font-sans);
   font-size: 18px;
-  font-weight: 400;
-  line-height: 1.35;
-  /* Bitmap-style edges: no gray blending (VT323 / terminal readout) */
-  -webkit-font-smoothing: none;
+  font-weight: 500;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-shadow:
-    0 0 2px rgba(79, 255, 196, 0.12),
-    1px 0 0 rgba(168, 255, 217, 0.07),
-    -1px 0 0 rgba(168, 255, 217, 0.07);
-  animation: crt-flicker 5s infinite;
+  text-rendering: optimizeLegibility;
 }
 
-/* Scanlines, abyss color bleed, CRT vignette */
+/* Soft vignette + very light scanlines (do not smear glyphs) */
 body::before {
   content: "";
   position: fixed;
@@ -78,22 +59,15 @@ body::before {
   pointer-events: none;
   z-index: 0;
   background:
-    radial-gradient(ellipse 90% 75% at 50% 50%, transparent 32%, rgba(1, 6, 8, 0.82) 100%),
-    radial-gradient(ellipse 120% 85% at 50% 115%, rgba(15, 90, 80, 0.22), transparent 58%),
-    radial-gradient(ellipse 70% 55% at 15% -5%, rgba(25, 90, 110, 0.14), transparent 45%),
+    radial-gradient(ellipse 90% 75% at 50% 50%, transparent 40%, rgba(1, 6, 8, 0.45) 100%),
+    radial-gradient(ellipse 120% 85% at 50% 115%, rgba(15, 90, 80, 0.18), transparent 58%),
+    radial-gradient(ellipse 70% 55% at 15% -5%, rgba(25, 90, 110, 0.1), transparent 45%),
     repeating-linear-gradient(
       0deg,
       transparent,
-      transparent 2px,
-      rgba(0, 0, 0, 0.175) 2px,
-      rgba(0, 0, 0, 0.175) 3px
-    ),
-    repeating-linear-gradient(
-      90deg,
-      transparent,
-      transparent 100px,
-      rgba(79, 255, 196, 0.02) 100px,
-      rgba(79, 255, 196, 0.02) 101px
+      transparent 3px,
+      rgba(0, 0, 0, 0.06) 3px,
+      rgba(0, 0, 0, 0.06) 4px
     );
 }
 
@@ -128,9 +102,6 @@ body > * {
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--accent);
-  text-shadow:
-    0 0 8px var(--accent-glow),
-    0 0 24px rgba(79, 255, 196, 0.35);
 }
 
 .topbar .wordmark-tag {
@@ -143,7 +114,6 @@ body > * {
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--accent-dim);
-  text-shadow: 0 0 10px var(--accent-glow);
   border: 1px solid var(--border-strong);
   background: var(--panel);
   vertical-align: middle;
@@ -162,10 +132,9 @@ body > * {
   max-width: 52em;
   color: var(--fg-muted);
   font-size: 1.05rem;
-  line-height: 1.35;
-  font-weight: 400;
-  letter-spacing: 0.04em;
-  text-shadow: 0 0 6px rgba(79, 255, 196, 0.18);
+  line-height: 1.45;
+  font-weight: 500;
+  letter-spacing: 0.02em;
 }
 
 .links {
@@ -192,7 +161,6 @@ body > * {
 .links a:hover {
   color: var(--accent);
   border-bottom-color: var(--accent-dim);
-  text-shadow: 0 0 18px var(--accent-glow);
 }
 
 /* Clipped panels */
@@ -531,10 +499,11 @@ li {
 .footer {
   margin-top: 22px;
   text-align: center;
-  font-size: 0.72rem;
-  color: var(--fg-dim);
-  font-family: var(--font-mono);
-  letter-spacing: 0.06em;
+  font-size: 0.9rem;
+  color: var(--fg-muted);
+  font-family: var(--font-sans);
+  letter-spacing: 0.03em;
+  line-height: 1.5;
 }
 
 .hidden {
