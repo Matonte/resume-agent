@@ -267,43 +267,48 @@ async def upload_profile_resume(
             original_name=name,
             byte_size=len(data),
         )
-        result: Dict[str, Any] = {
-            "ok": True,
-            "saved_as": safe,
-            "asset_id": asset_id,
-            "rel_path": rel,
-        }
-        from app.services.onboarding_bootstrap import read_resume_file
 
-        try:
-            extracted = read_resume_file(dest)
-        except ValueError as exc:
-            dest.unlink(missing_ok=True)
+    from app.services.onboarding_bootstrap import read_resume_file
+
+    try:
+        extracted = read_resume_file(dest)
+    except ValueError as exc:
+        dest.unlink(missing_ok=True)
+        with get_conn() as conn:
             conn.execute(
                 "DELETE FROM user_onboarding_assets WHERE id = ?",
                 (asset_id,),
             )
             conn.commit()
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        except Exception as exc:  # noqa: BLE001
-            dest.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        dest.unlink(missing_ok=True)
+        with get_conn() as conn:
             conn.execute(
                 "DELETE FROM user_onboarding_assets WHERE id = ?",
                 (asset_id,),
             )
             conn.commit()
-            raise HTTPException(
-                status_code=400,
-                detail=f"Could not extract text from this file: {exc}",
-            ) from exc
-        result["extracted_chars"] = len(extracted)
-        result["extracted_preview"] = extracted[:4000]
-        result["needs_review"] = True
-        if process:
-            processed = _process_profile_resumes(
+        raise HTTPException(
+            status_code=400,
+            detail=f"Could not extract text from this file: {exc}",
+        ) from exc
+
+    result: Dict[str, Any] = {
+        "ok": True,
+        "saved_as": safe,
+        "asset_id": asset_id,
+        "rel_path": rel,
+        "extracted_chars": len(extracted),
+        "extracted_preview": extracted[:4000],
+        "needs_review": True,
+    }
+    if process:
+        with get_conn() as conn:
+            _prof, candir = _owned_disk_profile(conn, uid, profile_id)
+            result["processed"] = _process_profile_resumes(
                 conn, uid=uid, profile_id=profile_id, candir=candir, mode=mode
             )
-            result["processed"] = processed
     return result
 
 

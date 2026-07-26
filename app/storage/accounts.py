@@ -498,21 +498,27 @@ def insert_onboarding_asset(
 
 
 def count_onboarding_assets(conn: sqlite3.Connection, user_id: int, kind: str) -> int:
+    from app.storage.sql_compat import row_scalar
+
     row = conn.execute(
-        "SELECT COUNT(*) FROM user_onboarding_assets WHERE user_id = ? AND kind = ?",
+        "SELECT COUNT(*) AS c FROM user_onboarding_assets WHERE user_id = ? AND kind = ?",
         (user_id, kind),
     ).fetchone()
-    return int(row[0]) if row and row[0] is not None else 0
+    val = row_scalar(row, key="c")
+    return int(val) if val is not None else 0
 
 
 def count_assets_for_profile(
     conn: sqlite3.Connection, profile_id: int, kind: str
 ) -> int:
+    from app.storage.sql_compat import row_scalar
+
     row = conn.execute(
-        "SELECT COUNT(*) FROM user_onboarding_assets WHERE profile_id = ? AND kind = ?",
+        "SELECT COUNT(*) AS c FROM user_onboarding_assets WHERE profile_id = ? AND kind = ?",
         (profile_id, kind),
     ).fetchone()
-    return int(row[0]) if row and row[0] is not None else 0
+    val = row_scalar(row, key="c")
+    return int(val) if val is not None else 0
 
 
 def list_assets_for_profile(

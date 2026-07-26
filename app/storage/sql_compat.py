@@ -17,6 +17,30 @@ from app.config import settings
 Params = Union[Sequence[Any], dict[str, Any], None]
 
 
+def row_scalar(row: Any, *, key: Optional[str] = None) -> Any:
+    """First column of a query row — works for sqlite3.Row and MySQL DictCursor dicts."""
+    if row is None:
+        return None
+    if isinstance(row, dict):
+        if key is not None and key in row:
+            return row[key]
+        # Prefer common aliases before falling back to insertion order.
+        for alias in ("c", "count", "COUNT(*)", key):
+            if alias and alias in row:
+                return row[alias]
+        return next(iter(row.values()), None)
+    if key is not None and hasattr(row, "keys") and key in row.keys():
+        return row[key]
+    try:
+        return row[0]
+    except (KeyError, IndexError, TypeError):
+        if hasattr(row, "keys"):
+            keys = list(row.keys())
+            if keys:
+                return row[keys[0]]
+        raise
+
+
 def use_mysql() -> bool:
     url = (settings.database_url or "").strip()
     if url.startswith("mysql"):
@@ -245,6 +269,7 @@ def connect_mysql() -> Iterator[MysqlConnectionProxy]:
 __all__ = [
     "use_mysql",
     "adapt_sql_for_mysql",
+    "row_scalar",
     "MysqlConnectionProxy",
     "mysql_table_columns",
     "connect_sqlite",
