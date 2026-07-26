@@ -96,14 +96,19 @@
     <section class="panel" id="resume-upload-panel" hidden>
       <h2 class="panel-heading">Update active profile from résumé</h2>
       <p class="muted">
-        Upload <code>.docx</code> or <code>.txt</code> into the active profile pack.
+        Upload <code>.docx</code>, <code>.txt</code>, or <code>.pdf</code> into the active profile pack.
         Processing merges facts into the truth model and rebuilds RAG for tailoring.
       </p>
       <p id="resume-active-line" class="muted"></p>
       <form id="resume-upload-form" class="form-grid">
-        <label><span>Résumé file</span><input name="file" type="file" accept=".docx,.txt" required /></label>
+        <label><span>Résumé file</span><input name="file" type="file" accept=".docx,.txt,.pdf,application/pdf" required /></label>
         <button type="submit">Upload</button>
       </form>
+      <div id="account-extract-review" class="panel" hidden style="margin-top:0.75rem;">
+        <h3 class="panel-heading">Review extracted text</h3>
+        <pre id="account-extract-preview" class="jd-preview" style="max-height:200px;overflow:auto;white-space:pre-wrap;"></pre>
+        <button type="button" id="account-extract-confirm" class="secondary">Looks good</button>
+      </div>
       <div class="form-grid" style="margin-top:0.75rem;">
         <button type="button" id="process-resumes-btn">Process into profile</button>
         <label class="inline-check">

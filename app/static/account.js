@@ -353,6 +353,16 @@
     profileStatus.textContent = "Profile created from template.";
   });
 
+  const accountExtractReview = document.getElementById("account-extract-review");
+  const accountExtractPreview = document.getElementById("account-extract-preview");
+  const accountExtractConfirm = document.getElementById("account-extract-confirm");
+  if (accountExtractConfirm) {
+    accountExtractConfirm.addEventListener("click", () => {
+      if (accountExtractReview) accountExtractReview.hidden = true;
+      setResumeStatus("Extracted text confirmed. You can process résumés when ready.", "success");
+    });
+  }
+
   document.getElementById("resume-upload-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     if (!activeProfileId) {
@@ -361,6 +371,7 @@
     }
     setResumeStatus("");
     resumeProcessSummary.hidden = true;
+    if (accountExtractReview) accountExtractReview.hidden = true;
     const fd = new FormData(e.target);
     const res = await fetch(`/api/profiles/${encodeURIComponent(activeProfileId)}/resumes`, {
       method: "POST",
@@ -373,7 +384,17 @@
       return;
     }
     e.target.reset();
-    setResumeStatus("Uploaded " + (data.saved_as || "file") + ".", "success");
+    setResumeStatus(
+      "Uploaded " +
+        (data.saved_as || "file") +
+        (data.extracted_chars != null ? " · extracted " + data.extracted_chars + " chars" : "") +
+        ". Review the text below before processing.",
+      "success",
+    );
+    if (accountExtractPreview && accountExtractReview && data.extracted_preview) {
+      accountExtractPreview.textContent = data.extracted_preview;
+      accountExtractReview.hidden = false;
+    }
     await loadResumeAssets(activeProfileId);
   });
 

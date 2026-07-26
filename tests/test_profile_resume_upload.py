@@ -224,13 +224,64 @@ def test_default_workspace_cannot_upload_profile_resume(client: TestClient) -> N
     assert res.status_code in (401, 403, 404)
 
 
-def test_upload_rejects_pdf(client: TestClient, monkeypatch) -> None:
+def _minimal_text_pdf(text: str = "Jane Doe Senior Engineer Acme") -> bytes:
+    """Build a tiny PDF with extractable text (Helvetica)."""
+    # Keep ASCII-only for a simple content stream.
+    safe = "".join(ch if 32 <= ord(ch) < 127 else " " for ch in text)[:80]
+    stream = f"BT /F1 12 Tf 72 720 Td ({safe}) Tj ET"
+    stream_bytes = stream.encode("latin-1")
+    objects = [
+        "1 0 obj<< /Type /Catalog /Pages 2 0 R >>endobj\n",
+        "2 0 obj<< /Type /Pages /Kids [3 0 R] /Count 1 >>endobj\n",
+        (
+            "3 0 obj<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+            "/Contents 4 0 R /Resources<< /Font<< /F1 5 0 R >> >> >>endobj\n"
+        ),
+        f"4 0 obj<< /Length {len(stream_bytes)} >>stream\n{stream}\nendstream\nendobj\n",
+        "5 0 obj<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>endobj\n",
+    ]
+    out = ["%PDF-1.4\n"]
+    offsets = [0]
+    for obj in objects:
+        offsets.append(sum(len(x.encode("latin-1")) for x in out))
+        out.append(obj)
+    xref_pos = sum(len(x.encode("latin-1")) for x in out)
+    out.append(f"xref\n0 {len(objects) + 1}\n")
+    out.append("0000000000 65535 f \n")
+    for off in offsets[1:]:
+        out.append(f"{off:010d} 00000 n \n")
+    out.append(
+        f"trailer<< /Size {len(objects) + 1} /Root 1 0 R >>\n"
+        f"startxref\n{xref_pos}\n%%EOF\n"
+    )
+    return "".join(out).encode("latin-1")
+
+
+def test_upload_accepts_pdf(client: TestClient, monkeypatch) -> None:
+    _email, _uid, pid = _register_and_complete(client, monkeypatch)
+    data = _minimal_text_pdf()
+    res = client.post(
+        f"/api/profiles/{pid}/resumes",
+        files={"file": ("cv.pdf", data, "application/pdf")},
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body.get("ok") is True
+    assert body.get("saved_as", "").endswith(".pdf")
+    assert body.get("extracted_chars", 0) > 0
+    assert "Jane" in (body.get("extracted_preview") or "")
+    assert body.get("needs_review") is True
+
+
+def test_upload_rejects_bad_pdf(client: TestClient, monkeypatch) -> None:
     _email, _uid, pid = _register_and_complete(client, monkeypatch)
     res = client.post(
         f"/api/profiles/{pid}/resumes",
         files={"file": ("cv.pdf", b"%PDF-1.4 fake", "application/pdf")},
     )
     assert res.status_code == 400
+    detail = res.json().get("detail", "")
+    assert isinstance(detail, str) and detail
 
 
 def test_profile_resume_kind_included_in_rel_prefix() -> None:

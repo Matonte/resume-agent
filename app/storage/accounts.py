@@ -141,7 +141,7 @@ def register_profile_source_resumes(
     for path in sorted(src_dir.iterdir()):
         if not path.is_file():
             continue
-        if path.suffix.lower() not in {".docx", ".txt"}:
+        if path.suffix.lower() not in {".docx", ".txt", ".pdf"}:
             continue
         name = path.name
         if name.strip().lower() in existing:

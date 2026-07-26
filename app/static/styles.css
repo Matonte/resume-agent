@@ -712,6 +712,23 @@ code {
   box-shadow: 0 0 8px var(--accent-glow);
 }
 
+#onboarding-progress {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+#onboarding-progress li {
+  font-size: 0.92rem;
+  color: var(--fg-muted);
+}
+
+#onboarding-progress li.done {
+  color: var(--fg);
+}
+
 .hiring-flow-hint {
   margin: 0.75rem 0 0;
   font-size: 0.9rem;

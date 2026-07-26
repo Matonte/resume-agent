@@ -16,7 +16,7 @@
       <div>
         <h1>Set up <span class="wordmark-tag" aria-hidden="true">Your workspace</span></h1>
         <p class="subtitle">
-          Upload at least one résumé (<code>.docx</code> or <code>.txt</code>) and paste several job descriptions you care about.
+          Upload at least one résumé (<code>.docx</code>, <code>.txt</code>, or <code>.pdf</code>) and paste several job descriptions you care about.
           We build your verified experience profile — the facts Resume Agent will tailor from without inventing anything — then you review and confirm before the app unlocks.
         </p>
       </div>
@@ -28,16 +28,23 @@
 
     <section class="panel">
       <p id="status-line" class="muted">Loading status…</p>
+      <ol id="onboarding-progress" class="hiring-flow" aria-label="Onboarding progress"></ol>
       <p id="banner" class="status" hidden></p>
     </section>
 
     <section class="panel" id="upload-panel">
       <h2 class="panel-heading">Résumé files</h2>
       <form id="resume-form" class="form-grid">
-        <label><span>File</span><input name="file" type="file" accept=".docx,.txt" required /></label>
+        <label><span>File</span><input name="file" type="file" accept=".docx,.txt,.pdf,application/pdf" required /></label>
         <button type="submit">Upload résumé</button>
       </form>
       <p id="resume-list" class="muted"></p>
+      <div id="extract-review" class="panel" hidden style="margin-top:1rem;">
+        <h3 class="panel-heading">Review extracted text</h3>
+        <p class="muted">Confirm this looks like your résumé before continuing. Fix the file and re-upload if extraction looks wrong.</p>
+        <pre id="extract-preview" class="jd-preview" style="max-height:240px;overflow:auto;white-space:pre-wrap;"></pre>
+        <button type="button" id="extract-confirm-btn" class="primary">Looks good — continue</button>
+      </div>
     </section>
 
     <section class="panel" id="jd-panel">
@@ -52,8 +59,9 @@
 
     <section class="panel" id="generate-panel">
       <h2 class="panel-heading">Generate draft</h2>
-      <p class="muted">When counts below meet the minimum, generate a draft profile for review.</p>
+      <p class="muted" id="finish-help">When counts below meet the minimum, generate a draft profile for review.</p>
       <button type="button" id="finish-btn" class="primary" disabled>Generate draft profile</button>
+      <p id="finish-disabled-reason" class="muted" style="margin-top:0.5rem;"></p>
       <p id="finish-msg" class="status" hidden></p>
     </section>
 

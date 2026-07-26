@@ -117,35 +117,47 @@ Copy from [`.env.example`](.env.example). Commonly used:
 
 Prep features in Resume Agent (**`/meeting-advisor`**, outreach enrichment, manual tailor advisor, `POST /api/person-profile-bundle`) call a **Meeting Advisor** HTTP API (`POST …/api/v1/advise`). That service orchestrates **WhoIsWhat (K)**, **WhoIsHoss**, and tactical prep JSON. The implementation lives in the sibling **[Contact Advisor](https://github.com/Matonte/contact-advisor)** repo (clone beside `resume-agent` as `contact_advisor` or `flask_sample` so `scripts/start_meeting_advisor.ps1` can find it, or pass `-RepoRoot`).
 
+**Full setup (env vars, startup order, when you need another instance, troubleshooting):** see **[docs/MEETING_ADVISOR_SETUP.md](docs/MEETING_ADVISOR_SETUP.md)**.
+
 ### Portal / links
 
 | What | URL |
 |------|-----|
 | **Contact Advisor** source | [github.com/Matonte/contact-advisor](https://github.com/Matonte/contact-advisor) |
 | **Meeting prep UI** in Resume Agent (embedded; set `MEETING_ADVISOR_URL`) | [http://127.0.0.1:8000/meeting-advisor](http://127.0.0.1:8000/meeting-advisor) |
+| **Setup guide** | [docs/MEETING_ADVISOR_SETUP.md](docs/MEETING_ADVISOR_SETUP.md) |
 
 Use the Contact Advisor README for venv, dependencies, and **`OPENAI_API_KEY`** on that stack.
 
-### Processes (typical local)
+### Processes (startup order)
 
-| Role | Base URL | Start (Contact Advisor repo root) |
-|------|----------|-------------------------------------|
-| Contact Advisor — WhoIsWhat + **`POST /api/v1/people-intel`** | `http://127.0.0.1:5000` | `python run.py` |
-| WhoIsHoss | `http://127.0.0.1:5002` | `python run_whoishoss.py` |
-| Meeting Advisor — **`POST /api/v1/advise`** | `http://127.0.0.1:5003` | `python run_meeting_advisor.py` |
+Start Contact Advisor services **before** relying on Resume Agent advisor features:
 
-### Resume Agent `.env`
+| Order | Role | Base URL | Start (Contact Advisor repo root) |
+|------:|------|----------|-------------------------------------|
+| 1 | Contact Advisor — WhoIsWhat + **`POST /api/v1/people-intel`** | `http://127.0.0.1:5000` | `python run.py` |
+| 2 | WhoIsHoss | `http://127.0.0.1:5002` | `python run_whoishoss.py` |
+| 3 | Meeting Advisor — **`POST /api/v1/advise`** | `http://127.0.0.1:5003` | `python run_meeting_advisor.py` |
+
+Start an **additional** Meeting Advisor / Contact Advisor instance when Resume Agent runs on another machine or EC2 host than the advisor stack — point env vars at that host’s URLs (prefer localhost on the same VM; do not expose 5000/5003 publicly). Details: [docs/MEETING_ADVISOR_SETUP.md](docs/MEETING_ADVISOR_SETUP.md).
+
+### Resume Agent `.env` (Meeting Advisor)
+
+| Variable | Required for advisor? | Purpose |
+|----------|----------------------|---------|
+| `MEETING_ADVISOR_URL` | Yes | Base URL of the **advisor** process (e.g. `http://127.0.0.1:5003`) — **not** Resume Agent `:8000` |
+| `CONTACT_ADVISOR_SERVICE_URL` | Recommended | WhoIsWhat / people-intel base (e.g. `http://127.0.0.1:5000`). Alias: `WHOISWHAT_SERVICE_URL` |
+| `MEETING_ADVISOR_ADVISE_PATH` | No | Default `/api/v1/advise` |
+| `MEETING_ADVISOR_UI_URL` | No | Browser redirect for GET `/meeting-advisor`; API still uses `MEETING_ADVISOR_URL` |
 
 ```env
 MEETING_ADVISOR_URL=http://127.0.0.1:5003
 CONTACT_ADVISOR_SERVICE_URL=http://127.0.0.1:5000
 ```
 
-`MEETING_ADVISOR_URL` must be the **Meeting Advisor** process base (not Resume Agent on `:8000`) or advise calls return 404. (`WHOISWHAT_SERVICE_URL` is a deprecated alias for `CONTACT_ADVISOR_SERVICE_URL`.) Optional: **`MEETING_ADVISOR_UI_URL`** redirects the browser from GET `/meeting-advisor`; API still uses `MEETING_ADVISOR_URL`.
-
 ### Verify
 
-From this repo: `python scripts/check_meeting_advisor_stack.py`. Windows: `.\scripts\start_meeting_advisor.ps1`. Restart Resume Agent after editing `.env`.
+From this repo: `python scripts/check_meeting_advisor_stack.py`. Windows: `.\scripts\start_meeting_advisor.ps1`. Restart Resume Agent after editing `.env`. Common failures (404, connection refused, empty people-intel): [docs/MEETING_ADVISOR_SETUP.md](docs/MEETING_ADVISOR_SETUP.md#troubleshooting).
 
 ## API highlights
 

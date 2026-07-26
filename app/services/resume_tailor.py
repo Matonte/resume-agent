@@ -97,6 +97,14 @@ def _rank_bullets(job_description: str) -> List[_ScoredBullet]:
             fact = ach.get("text") or ""
             if not fact:
                 continue
+            status = str(ach.get("status") or "").lower()
+            try:
+                conf = float(ach.get("confidence") if ach.get("confidence") is not None else 1.0)
+            except (TypeError, ValueError):
+                conf = 1.0
+            # Omit weak inferences rather than present them as experience.
+            if status == "inferred" and conf < 0.55:
+                continue
             eid = str(ach.get("id") or "")
             fact_tokens = set(_tokenize(fact))
             fact_match = len(fact_tokens & job_tokens)
@@ -131,30 +139,105 @@ def _join_clause(items: List[str]) -> str:
     return ", ".join(items[:-1]) + f", and {items[-1]}"
 
 
+def _tokens_in(text: str) -> set:
+    return {m.group(0).lower() for m in re.finditer(r"[A-Za-z][A-Za-z0-9+\-/#]{2,}", text or "")}
+
+
+_INDUSTRY_TOKENS = {
+    "financial",
+    "finance",
+    "fintech",
+    "banking",
+    "healthcare",
+    "retail",
+    "industrial",
+    "regulated",
+    "compliance",
+    "enterprise",
+}
+
+
+def _profile_token_blob(truth: Dict) -> set:
+    blob_parts: List[str] = []
+    cand = truth.get("candidate") or {}
+    blob_parts.append(str(cand.get("headline") or ""))
+    skills = cand.get("skills") or {}
+    if isinstance(skills, dict):
+        for v in skills.values():
+            if isinstance(v, list):
+                blob_parts.extend(str(x) for x in v)
+            elif isinstance(v, str):
+                blob_parts.append(v)
+    for role in truth.get("roles") or []:
+        blob_parts.append(str(role.get("company") or ""))
+        blob_parts.append(str(role.get("title") or ""))
+        blob_parts.extend(str(t) for t in (role.get("themes") or []))
+        blob_parts.extend(str(t) for t in (role.get("tech") or []))
+        for fact in role.get("core_facts") or []:
+            blob_parts.append(str(fact))
+        for ach in role.get("achievements") or []:
+            if isinstance(ach, dict):
+                blob_parts.append(str(ach.get("text") or ""))
+    return _tokens_in(" ".join(blob_parts))
+
+
+def _ground_industry_phrase(truth: Dict, phrase: str, *, fallback: str) -> str:
+    """Drop industry/employer-ish words that are not already in the profile."""
+    allowed = _profile_token_blob(truth)
+    words = (phrase or "").split()
+    kept: List[str] = []
+    for w in words:
+        bare = re.sub(r"[^A-Za-z0-9+\-/#]", "", w).lower()
+        if bare in _INDUSTRY_TOKENS and bare not in allowed:
+            continue
+        kept.append(w)
+    grounded = " ".join(kept).strip(" ,")
+    grounded = re.sub(r"\s+", " ", grounded)
+    grounded = re.sub(r"\b(and|or|in|of|the)\s+(and|or|in|of|the)\b", r"\1", grounded, flags=re.I)
+    grounded = re.sub(r"^(and|or)\s+", "", grounded, flags=re.I)
+    grounded = re.sub(r"\s+(and|or)$", "", grounded, flags=re.I)
+    grounded = grounded.strip(" ,")
+    return grounded if grounded else fallback
+
+
 def _archetype_summary(archetype_id: str, truth: Dict) -> str:
     """Render the positioning summary using the archetype's scale/domain phrases.
 
-    Template:
-        "{headline_title} with {N}+ years of experience building {scale_phrase}
-         in {domain_phrase}. Specializes in {specializations}, with a focus on
-         {focus_traits}."
-
-    Each archetype declares its own scale_phrase / domain_phrase /
-    specializations / focus_traits so the output has a distinct POV for fintech
-    (B) vs. distributed systems (D) vs. data/streaming (C) — no generic
-    'effective collaboration' wording, no archetype-ambiguous phrasing.
+    Years of experience are taken only from the candidate profile when set —
+    never invented. Industry words in scale/domain are kept only when the
+    profile already contains them.
     """
     archetypes = load_archetypes()
     archetype = archetypes.get(archetype_id) or archetypes.get("A_general_ai_platform") or {}
 
-    years = truth.get("candidate", {}).get("years_experience", 10)
+    raw_years = truth.get("candidate", {}).get("years_experience")
+    years: Optional[int] = None
+    try:
+        if raw_years is not None and str(raw_years).strip() != "":
+            y = int(raw_years)
+            if y > 0:
+                years = y
+    except (TypeError, ValueError):
+        years = None
+
+    cand_headline = ((truth.get("candidate") or {}).get("headline") or "").strip()
     headline_title = (
-        archetype.get("headline_title")
-        or truth.get("candidate", {}).get("headline")
-        or "Senior Backend Engineer"
+        cand_headline
+        or archetype.get("headline_title")
+        or "Software Engineer"
     )
-    scale = archetype.get("scale_phrase") or "distributed backend systems"
-    domain = archetype.get("domain_phrase") or "production environments"
+
+    scale = _ground_industry_phrase(
+        truth,
+        archetype.get("scale_phrase") or "backend systems",
+        fallback="software systems",
+    )
+    domain = _ground_industry_phrase(
+        truth,
+        archetype.get("domain_phrase") or "production environments",
+        fallback="production environments",
+    )
+
     specializations = archetype.get("specializations") or [
         "backend architecture",
         "distributed systems",
@@ -166,8 +249,15 @@ def _archetype_summary(archetype_id: str, truth: Dict) -> str:
         "production performance",
     ]
 
+    if years is not None:
+        sentence1 = (
+            f"{headline_title} with {years}+ years of experience building {scale} in {domain}."
+        )
+    else:
+        sentence1 = f"{headline_title} with experience building {scale} in {domain}."
+
     return (
-        f"{headline_title} with {years}+ years of experience building {scale} in {domain}. "
+        f"{sentence1} "
         f"Specializes in {_join_clause(specializations[:3])}, "
         f"with a focus on {_join_clause(focus_traits[:3])}."
     )
@@ -323,6 +413,37 @@ def generate_resume_draft(
     if use_llm and not llm_applied:
         notes.append("Job-language matching was requested but fell back to a deterministic draft.")
 
+    clarifying_questions: List[str] = []
+    raw_years = (truth.get("candidate") or {}).get("years_experience")
+    years_set = False
+    try:
+        years_set = raw_years is not None and int(raw_years) > 0
+    except (TypeError, ValueError):
+        years_set = False
+    if not years_set:
+        clarifying_questions.append(
+            "How many years of professional experience should we state on tailored resumes?"
+        )
+    weak_inferred = 0
+    for role in truth.get("roles") or []:
+        for ach in iter_achievements(role):
+            status = str(ach.get("status") or "").lower()
+            try:
+                conf = float(ach.get("confidence") if ach.get("confidence") is not None else 1.0)
+            except (TypeError, ValueError):
+                conf = 1.0
+            if status == "inferred" and conf < 0.55:
+                weak_inferred += 1
+    if weak_inferred:
+        clarifying_questions.append(
+            f"Confirm or remove {weak_inferred} low-confidence inferred claim(s) in your profile before sending."
+        )
+    if clarifying_questions:
+        notes.append(
+            "Clarifying questions (answer these instead of assuming): "
+            + " ".join(clarifying_questions)
+        )
+
     selected_evidence = []
     for bullet, eid in zip(final_bullets, final_ids):
         ev = evidence_for_bullet(truth, bullet)
@@ -347,6 +468,7 @@ def generate_resume_draft(
         "selected_evidence": selected_evidence,
         "requirement_matches": match_requirements_to_evidence(job_description, truth),
         "evidence_gated": True,
+        "clarifying_questions": clarifying_questions,
         "notes": notes,
         "llm_applied": llm_applied,
     }

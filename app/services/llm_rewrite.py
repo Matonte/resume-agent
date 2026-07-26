@@ -34,7 +34,9 @@ SYSTEM_PROMPT = (
     "HARD CONSTRAINTS:\n"
     "- NEVER invent metrics, percentages, team sizes, durations, dollar amounts, or "
     "specific tools/frameworks/clouds that aren't in the source text.\n"
+    "- NEVER invent years of experience, industries, employers, or job titles.\n"
     "- NEVER change companies, titles, or dates.\n"
+    "- If a fact is missing or unclear, omit it — do not guess.\n"
     "- Every factual claim in your output must already be supported by the source.\n\n"
     "ENCOURAGED:\n"
     "- Mirror the job description's vocabulary where it naturally fits.\n"
@@ -198,10 +200,9 @@ def rewrite_summary(
         "Sentence 1: '<Senior Title> with <N>+ years of experience building <scale phrase> "
         "in <domain>.'\n"
         "Sentence 2: 'Specializes in <A, B, and C>, with a focus on <X, Y, and Z>.'\n\n"
-        "- Preserve the years of experience and seniority from the current summary.\n"
-        "- Use the scale/domain/specializations/focus hints verbatim where they fit the JD, "
-        "or tighten them to mirror the JD's own vocabulary.\n"
-        "- Do NOT invent tools, metrics, companies, or team sizes.\n"
+        "- Preserve the years of experience and seniority from the current summary. "
+        "If the baseline omits years, do not invent a number.\n"
+        "- Do NOT invent industries, employers, tools, metrics, companies, or team sizes.\n"
         "- Avoid soft filler like 'effective collaboration', 'passionate about'.\n\n"
         'Respond as JSON: {"summary": "..."}'
     )

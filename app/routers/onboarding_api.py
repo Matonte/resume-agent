@@ -37,7 +37,7 @@ from app.storage.db import get_conn
 router = APIRouter(prefix="/api/onboarding", tags=["onboarding"])
 
 _MAX_BYTES = 5 * 1024 * 1024
-_ALLOWED_RESUME = {".docx", ".txt"}
+_ALLOWED_RESUME = {".docx", ".txt", ".pdf"}
 
 
 def _session_uid(request: Request) -> int:
@@ -104,7 +104,7 @@ async def upload_resume(request: Request, file: UploadFile = File(...)) -> Any:
         if suf not in _ALLOWED_RESUME:
             raise HTTPException(
                 status_code=400,
-                detail="Résumé must be .docx or .txt",
+                detail="Résumé must be .docx, .txt, or .pdf",
             )
         n = count_onboarding_assets(conn, uid, "resume") + 1
         safe = f"resume_{n}{suf}"
@@ -124,7 +124,39 @@ async def upload_resume(request: Request, file: UploadFile = File(...)) -> Any:
             original_name=name,
             byte_size=len(data),
         )
-    return {"ok": True, "saved_as": safe}
+    from app.services.onboarding_bootstrap import read_resume_file
+
+    try:
+        extracted = read_resume_file(dest)
+    except ValueError as exc:
+        dest.unlink(missing_ok=True)
+        with get_conn() as conn:
+            conn.execute(
+                "DELETE FROM user_onboarding_assets WHERE user_id = ? AND rel_path = ?",
+                (uid, rel),
+            )
+            conn.commit()
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        dest.unlink(missing_ok=True)
+        with get_conn() as conn:
+            conn.execute(
+                "DELETE FROM user_onboarding_assets WHERE user_id = ? AND rel_path = ?",
+                (uid, rel),
+            )
+            conn.commit()
+        raise HTTPException(
+            status_code=400,
+            detail=f"Could not extract text from this file: {exc}",
+        ) from exc
+    preview = extracted[:4000]
+    return {
+        "ok": True,
+        "saved_as": safe,
+        "extracted_chars": len(extracted),
+        "extracted_preview": preview,
+        "needs_review": True,
+    }
 
 
 class JobSampleBody(BaseModel):

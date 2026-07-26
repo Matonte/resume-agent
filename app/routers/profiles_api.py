@@ -37,7 +37,7 @@ from app.storage.db import get_conn
 router = APIRouter(prefix="/api/profiles", tags=["profiles"])
 
 _MAX_BYTES = 5 * 1024 * 1024
-_ALLOWED_RESUME = {".docx", ".txt"}
+_ALLOWED_RESUME = {".docx", ".txt", ".pdf"}
 
 
 class CreateProfileBody(BaseModel):
@@ -247,7 +247,7 @@ async def upload_profile_resume(
         if suf not in _ALLOWED_RESUME:
             raise HTTPException(
                 status_code=400,
-                detail="Résumé must be .docx or .txt",
+                detail="Résumé must be .docx, .txt, or .pdf",
             )
         n = count_assets_for_profile(conn, profile_id, "profile_resume") + 1
         safe = f"resume_{n}{suf}"
@@ -273,6 +273,32 @@ async def upload_profile_resume(
             "asset_id": asset_id,
             "rel_path": rel,
         }
+        from app.services.onboarding_bootstrap import read_resume_file
+
+        try:
+            extracted = read_resume_file(dest)
+        except ValueError as exc:
+            dest.unlink(missing_ok=True)
+            conn.execute(
+                "DELETE FROM user_onboarding_assets WHERE id = ?",
+                (asset_id,),
+            )
+            conn.commit()
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except Exception as exc:  # noqa: BLE001
+            dest.unlink(missing_ok=True)
+            conn.execute(
+                "DELETE FROM user_onboarding_assets WHERE id = ?",
+                (asset_id,),
+            )
+            conn.commit()
+            raise HTTPException(
+                status_code=400,
+                detail=f"Could not extract text from this file: {exc}",
+            ) from exc
+        result["extracted_chars"] = len(extracted)
+        result["extracted_preview"] = extracted[:4000]
+        result["needs_review"] = True
         if process:
             processed = _process_profile_resumes(
                 conn, uid=uid, profile_id=profile_id, candir=candir, mode=mode

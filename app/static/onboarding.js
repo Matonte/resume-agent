@@ -7,6 +7,12 @@
   const jdCount = document.getElementById("jd-count");
   const finishBtn = document.getElementById("finish-btn");
   const finishMsg = document.getElementById("finish-msg");
+  const finishDisabledReason = document.getElementById("finish-disabled-reason");
+  const finishHelp = document.getElementById("finish-help");
+  const progressList = document.getElementById("onboarding-progress");
+  const extractReview = document.getElementById("extract-review");
+  const extractPreview = document.getElementById("extract-preview");
+  const extractConfirmBtn = document.getElementById("extract-confirm-btn");
   const reviewPanel = document.getElementById("review-panel");
   const conflictsBox = document.getElementById("conflicts-box");
   const rolesEditor = document.getElementById("roles-editor");
@@ -18,6 +24,8 @@
   const revYears = document.getElementById("rev-years");
 
   let currentProfile = null;
+  /** True only after an upload in this session until the user confirms extraction. */
+  let pendingExtractReview = false;
 
   function showBanner(text, kind) {
     if (!text) {
@@ -164,6 +172,104 @@
     };
   }
 
+  function renderProgress(s) {
+    if (!progressList) return;
+    const llmOk = !!(s.llm_configured || s.allow_finish_without_llm);
+    const steps = [
+      {
+        done: s.resume_count >= s.min_resumes,
+        label:
+          "Upload résumé (" +
+          s.resume_count +
+          "/" +
+          s.min_resumes +
+          ")" +
+          (s.resume_count > 0 && pendingExtractReview ? " — review extracted text" : ""),
+      },
+      {
+        done: s.job_sample_count >= s.min_job_samples,
+        label: "Add job samples (" + s.job_sample_count + "/" + s.min_job_samples + ")",
+      },
+      {
+        done: llmOk,
+        label: s.llm_configured
+          ? "OpenAI API key configured"
+          : s.allow_finish_without_llm
+            ? "LLM optional (dev mode — finish without OpenAI key)"
+            : "OpenAI API key required (set OPENAI_API_KEY)",
+      },
+      {
+        done: !!s.awaiting_review,
+        label: s.awaiting_review
+          ? "Draft ready — review & confirm"
+          : "Generate draft profile",
+      },
+    ];
+    progressList.innerHTML = steps
+      .map(function (step) {
+        return (
+          "<li class=\"" +
+          (step.done ? "done" : "todo") +
+          "\">" +
+          (step.done ? "✓ " : "○ ") +
+          escapeHtml(step.label) +
+          "</li>"
+        );
+      })
+      .join("");
+  }
+
+  function updateFinishGate(s) {
+    const reasons = [];
+    if (s.resume_count < s.min_resumes) {
+      reasons.push(
+        "Upload at least " +
+          s.min_resumes +
+          " résumé" +
+          (s.min_resumes === 1 ? "" : "s") +
+          " (have " +
+          s.resume_count +
+          ").",
+      );
+    } else if (pendingExtractReview) {
+      reasons.push("Review the extracted résumé text and confirm it looks correct.");
+    }
+    if (s.job_sample_count < s.min_job_samples) {
+      reasons.push(
+        "Add at least " +
+          s.min_job_samples +
+          " job sample" +
+          (s.min_job_samples === 1 ? "" : "s") +
+          " (have " +
+          s.job_sample_count +
+          ").",
+      );
+    }
+    if (!s.llm_configured && !s.allow_finish_without_llm) {
+      reasons.push(
+        "An OpenAI API key is required. Set OPENAI_API_KEY in the server environment, then refresh.",
+      );
+    }
+    const canFinish =
+      s.resume_count >= s.min_resumes &&
+      s.job_sample_count >= s.min_job_samples &&
+      (s.llm_configured || s.allow_finish_without_llm) &&
+      !pendingExtractReview;
+    finishBtn.disabled = !canFinish;
+    if (finishDisabledReason) {
+      finishDisabledReason.textContent = canFinish
+        ? ""
+        : reasons.length
+          ? "Cannot generate yet: " + reasons.join(" ")
+          : "";
+    }
+    if (finishHelp) {
+      finishHelp.textContent = canFinish
+        ? "Ready — generate a draft profile for review."
+        : "When counts below meet the minimum, generate a draft profile for review.";
+    }
+  }
+
   async function refreshStatus() {
     const res = await fetch("/api/onboarding/status");
     if (!res.ok) {
@@ -176,19 +282,20 @@
       window.location.href = "/jobs/today";
       return;
     }
+    if (s.resume_count === 0) {
+      pendingExtractReview = false;
+      if (extractReview) extractReview.hidden = true;
+    }
     const llm = s.llm_configured
       ? "LLM: configured"
       : s.allow_finish_without_llm
         ? "LLM: off — will save raw text only (dev mode)"
-        : "LLM: off — set OPENAI_API_KEY or ONBOARDING_ALLOW_FINISH_WITHOUT_LLM=1";
+        : "LLM: off — OpenAI API key required (set OPENAI_API_KEY)";
     statusLine.textContent = `${llm} · Résumés: ${s.resume_count}/${s.min_resumes} · Job samples: ${s.job_sample_count}/${s.min_job_samples}`;
     resumeList.textContent = `Résumé uploads recorded: ${s.resume_count}`;
     jdCount.textContent = `Job samples recorded: ${s.job_sample_count}`;
-    finishBtn.disabled = !(
-      s.resume_count >= s.min_resumes &&
-      s.job_sample_count >= s.min_job_samples &&
-      (s.llm_configured || s.allow_finish_without_llm)
-    );
+    renderProgress(s);
+    updateFinishGate(s);
     if (s.awaiting_review) {
       const pref = await fetch("/api/onboarding/profile");
       if (pref.ok) {
@@ -196,6 +303,28 @@
         if (data.profile) showProfile(data.profile);
       }
     }
+  }
+
+  function showExtractPreview(preview, chars) {
+    if (!extractReview || !extractPreview) return;
+    extractPreview.textContent = preview || "(empty)";
+    extractReview.hidden = false;
+    pendingExtractReview = true;
+    showBanner(
+      "Extracted " +
+        (chars != null ? chars + " characters. " : "") +
+        "Review the text below before continuing.",
+      "info",
+    );
+  }
+
+  if (extractConfirmBtn) {
+    extractConfirmBtn.addEventListener("click", async () => {
+      pendingExtractReview = false;
+      if (extractReview) extractReview.hidden = true;
+      showBanner("Extracted text confirmed.", "success");
+      await refreshStatus();
+    });
   }
 
   resumeForm.addEventListener("submit", async (e) => {
@@ -212,11 +341,19 @@
     const res = await fetch("/api/onboarding/resume", { method: "POST", body: up });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      showBanner(data.detail || String(res.status), "error");
+      showBanner(
+        typeof data.detail === "string" ? data.detail : String(res.status),
+        "error",
+      );
       return;
     }
-    showBanner("Résumé saved.", "success");
     resumeForm.reset();
+    if (data.extracted_preview || data.needs_review) {
+      showExtractPreview(data.extracted_preview, data.extracted_chars);
+    } else {
+      showBanner("Résumé saved.", "success");
+      pendingExtractReview = false;
+    }
     await refreshStatus();
   });
 

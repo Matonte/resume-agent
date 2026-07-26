@@ -21,11 +21,43 @@ logger = logging.getLogger(__name__)
 
 
 def read_resume_file(path: Path) -> str:
+    """Extract plain text from a résumé file (.docx, .txt, or .pdf)."""
     suf = path.suffix.lower()
     if suf == ".docx":
         doc = Document(str(path))
         return "\n".join(p.text for p in doc.paragraphs if (p.text or "").strip())
+    if suf == ".pdf":
+        return _read_pdf_text(path)
     return path.read_text(encoding="utf-8", errors="replace")
+
+
+def _read_pdf_text(path: Path) -> str:
+    try:
+        from pypdf import PdfReader
+    except ImportError as exc:  # pragma: no cover
+        raise RuntimeError(
+            "PDF support requires the pypdf package. Install requirements.txt."
+        ) from exc
+    try:
+        reader = PdfReader(str(path))
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError(f"Could not open PDF: {exc}") from exc
+    parts: List[str] = []
+    for page in reader.pages:
+        try:
+            text = page.extract_text() or ""
+        except Exception:  # noqa: BLE001
+            text = ""
+        chunk = text.strip()
+        if chunk:
+            parts.append(chunk)
+    joined = "\n\n".join(parts).strip()
+    if not joined:
+        raise ValueError(
+            "No extractable text found in this PDF. "
+            "Try a text-based PDF (not a scanned image) or upload .docx / .txt."
+        )
+    return joined
 
 
 def load_upload_texts_for_user(conn, user_id: int) -> Tuple[List[str], List[str]]:
@@ -311,7 +343,10 @@ def _llm_merge_into_existing_truth(
         "2) Preserve profile_layers.user_preferences exactly. "
         "3) Add new employers/roles/achievements only when supported by the résumé text. "
         "4) Update dates, titles, skills, and tech when the résumé is clearer. "
-        "5) Do not invent employers or metrics absent from both existing JSON and résumé. "
+        "5) Do not invent employers, industries, years of experience, or metrics absent from "
+        "both existing JSON and résumé. If years_experience is unknown, omit it or leave 0 — never guess. "
+        "6) Prefer omitting unclear claims over inventing them; put low-confidence guesses only under "
+        "profile_layers.inferred_profile with confidence < 0.55. "
         "Return one JSON object with exactly two keys: "
         '"master_truth_model" and "story_bank". '
         f"master_truth_model.schema_version must be {SCHEMA_VERSION}. "
@@ -353,8 +388,12 @@ def _llm_build_truth_and_stories(
     system = (
         "You build resume-agent JSON used for tailoring. "
         "Use ONLY employers, titles, dates, metrics, tools, and projects that appear in the résumé text. "
+        "Never invent years of experience — set candidate.years_experience only when the résumé states it "
+        "(or leave 0 / omit). Never invent industries or employers not supported by the résumé. "
         "Job posting samples may guide skills emphasis, themes, and story angles — never invent employers "
         "or roles not supported by the résumé. "
+        "When unsure, omit the claim or put it under profile_layers.inferred_profile with low confidence "
+        "instead of writing it as a verified achievement. "
         "Return one JSON object with exactly two keys: "
         '"master_truth_model" and "story_bank". '
         f"master_truth_model.schema_version must be {SCHEMA_VERSION}. "
